@@ -24,6 +24,111 @@ type FileInfo struct {
 	Dir     string `json:"dir"`
 	Size    int64  `json:"size"`
 	ModTime int64  `json:"mtime"`
+	Preview string `json:"preview,omitempty"`
+}
+
+func extractPreview(path string, maxLen int) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil || info.Size() == 0 {
+		return ""
+	}
+
+	// Read up to 512KB to find <body>, then extract 16KB from there
+	scanSize := int64(524288)
+	if info.Size() < scanSize {
+		scanSize = info.Size()
+	}
+	header := make([]byte, scanSize)
+	n, _ := f.Read(header)
+	if n == 0 {
+		return ""
+	}
+
+	raw := string(header[:n])
+	if idx := strings.Index(strings.ToLower(raw), "<body"); idx >= 0 {
+		raw = raw[idx:]
+	}
+	if len(raw) > 16384 {
+		raw = raw[:16384]
+	}
+
+	var b strings.Builder
+	inTag := false
+	inSkip := false
+	i := 0
+	for i < len(raw) {
+		if !inTag && raw[i] == '<' {
+			rest := strings.ToLower(raw[i:])
+			if strings.HasPrefix(rest, "<script") || strings.HasPrefix(rest, "<style") || strings.HasPrefix(rest, "<head") {
+				var closeTag string
+				if strings.HasPrefix(rest, "<script") {
+					closeTag = "</script>"
+				} else if strings.HasPrefix(rest, "<style") {
+					closeTag = "</style>"
+				} else {
+					closeTag = "</head>"
+				}
+				end := strings.Index(strings.ToLower(raw[i:]), closeTag)
+				if end >= 0 {
+					i += end + len(closeTag)
+					inSkip = false
+					continue
+				}
+				inSkip = true
+			}
+			inTag = true
+			i++
+			continue
+		}
+		if inTag {
+			if raw[i] == '>' {
+				inTag = false
+			}
+			i++
+			continue
+		}
+		if inSkip {
+			i++
+			continue
+		}
+		if raw[i] == '&' {
+			semi := strings.IndexByte(raw[i:], ';')
+			if semi > 0 && semi < 10 {
+				i += semi + 1
+				b.WriteByte(' ')
+				continue
+			}
+		}
+		ch := raw[i]
+		if ch == '\n' || ch == '\r' || ch == '\t' {
+			ch = ' '
+		}
+		if ch == ' ' && b.Len() > 0 {
+			s := b.String()
+			if s[len(s)-1] == ' ' {
+				i++
+				continue
+			}
+		}
+		b.WriteByte(ch)
+		i++
+	}
+
+	text := strings.TrimSpace(b.String())
+	if len(text) > maxLen {
+		text = text[:maxLen]
+		if j := strings.LastIndex(text, " "); j > maxLen/2 {
+			text = text[:j]
+		}
+		text += "..."
+	}
+	return text
 }
 
 type TreeNode struct {
@@ -40,16 +145,22 @@ var defaultExcludes = []string{
 	"build", ".next", ".nuxt", ".cache",
 }
 
+type previewCache struct {
+	mtime   int64
+	preview string
+}
+
 type Server struct {
 	rootDir      string
 	mu           sync.RWMutex
 	files        []FileInfo
+	previews     map[string]previewCache
 	cliExcludes  []string
 	userExcludes []string
 }
 
 func NewServer(rootDir string, cliExcludes []string) *Server {
-	s := &Server{rootDir: rootDir, cliExcludes: cliExcludes}
+	s := &Server{rootDir: rootDir, cliExcludes: cliExcludes, previews: make(map[string]previewCache)}
 	s.scan()
 	go s.pollLoop()
 	return s
@@ -138,6 +249,19 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 	if len(files) > n {
 		files = files[:n]
 	}
+
+	s.mu.Lock()
+	for i := range files {
+		cached, ok := s.previews[files[i].Path]
+		if ok && cached.mtime == files[i].ModTime {
+			files[i].Preview = cached.preview
+		} else {
+			p := extractPreview(filepath.Join(s.rootDir, files[i].Path), 150)
+			s.previews[files[i].Path] = previewCache{mtime: files[i].ModTime, preview: p}
+			files[i].Preview = p
+		}
+	}
+	s.mu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(files)

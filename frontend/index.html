@@ -432,6 +432,17 @@ body {
   margin-top: 2px;
 }
 
+.file-item-preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .folder-item {
   padding: 6px 10px;
   border-radius: 4px;
@@ -866,12 +877,14 @@ function createFileItem(file) {
   div.dataset.path = file.path;
   div.onclick = () => openFile(file.path);
   const unread = isUnread(file.path, file.mtime);
+  const previewHtml = file.preview ? `<div class="file-item-preview">${file.preview}</div>` : '';
   div.innerHTML = `
     <div class="file-item-name-row">
       <span class="file-item-name" title="${file.path}">${file.name}</span>
       ${unread ? '<span class="unread-dot"></span>' : ''}
     </div>
     <span class="file-item-meta">${relativeTime(file.mtime)}</span>
+    ${previewHtml}
   `;
   return div;
 }
