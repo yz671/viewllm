@@ -280,6 +280,50 @@ body {
   margin: 6px 0 4px 2px;
 }
 
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 4px;
+  transition: background 0.1s;
+}
+
+.toggle-row:hover { background: var(--bg-hover); }
+
+.toggle-row input { display: none; }
+
+.toggle-slider {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--border);
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+
+.toggle-row input:checked + .toggle-slider {
+  background: var(--accent);
+}
+
+.toggle-row input:checked + .toggle-slider::after {
+  transform: translateX(16px);
+}
+
 .unread-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -441,6 +485,29 @@ body {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.file-item-thumb {
+  margin-top: 6px;
+  width: 100%;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.file-item-thumb iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 454%;
+  height: 364px;
+  border: none;
+  transform: scale(0.22);
+  transform-origin: top left;
+  pointer-events: none;
 }
 
 .folder-item {
@@ -633,6 +700,19 @@ body {
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">Preview</div>
+      <label class="toggle-row">
+        <span>Text preview</span>
+        <input type="checkbox" id="toggle-text-preview" onchange="togglePreviewSetting('textPreview', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+      <label class="toggle-row">
+        <span>Thumbnail preview</span>
+        <input type="checkbox" id="toggle-thumb-preview" onchange="togglePreviewSetting('thumbPreview', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">Ignored Folders</div>
       <div id="excludes-content"></div>
     </div>
@@ -672,6 +752,8 @@ const state = {
   mobileOpen: false,
   settingsOpen: false,
   allFiles: [],
+  textPreview: localStorage.getItem('viewllm-textPreview') !== 'false',
+  thumbPreview: localStorage.getItem('viewllm-thumbPreview') !== 'false',
 };
 
 function getReadMap() {
@@ -742,11 +824,26 @@ function setTheme(theme) {
   });
 }
 
+function togglePreviewSetting(key, value) {
+  state[key] = value;
+  localStorage.setItem('viewllm-' + key, value);
+  lastRecentKey = '';
+  fetchRecent();
+}
+
+function syncPreviewToggles() {
+  document.getElementById('toggle-text-preview').checked = state.textPreview;
+  document.getElementById('toggle-thumb-preview').checked = state.thumbPreview;
+}
+
 function toggleSettings() {
   state.settingsOpen = !state.settingsOpen;
   document.getElementById('settings-overlay').classList.toggle('open', state.settingsOpen);
   document.getElementById('settings-panel').classList.toggle('open', state.settingsOpen);
-  if (state.settingsOpen) fetchExcludes();
+  if (state.settingsOpen) {
+    fetchExcludes();
+    syncPreviewToggles();
+  }
 }
 
 async function fetchExcludes() {
@@ -871,13 +968,14 @@ function relativeTime(unixSeconds) {
   return new Date(unixSeconds * 1000).toLocaleDateString();
 }
 
-function createFileItem(file) {
+function createFileItem(file, showThumb) {
   const div = document.createElement('div');
   div.className = 'file-item' + (state.currentFile === file.path ? ' active' : '');
   div.dataset.path = file.path;
   div.onclick = () => openFile(file.path);
   const unread = isUnread(file.path, file.mtime);
-  const previewHtml = file.preview ? `<div class="file-item-preview">${file.preview}</div>` : '';
+  const previewHtml = (state.textPreview && file.preview) ? `<div class="file-item-preview">${file.preview}</div>` : '';
+  const thumbHtml = (showThumb && state.thumbPreview) ? `<div class="file-item-thumb"><iframe src="/files/${file.path}" loading="lazy" sandbox="allow-same-origin" tabindex="-1"></iframe></div>` : '';
   div.innerHTML = `
     <div class="file-item-name-row">
       <span class="file-item-name" title="${file.path}">${file.name}</span>
@@ -885,23 +983,31 @@ function createFileItem(file) {
     </div>
     <span class="file-item-meta">${relativeTime(file.mtime)}</span>
     ${previewHtml}
+    ${thumbHtml}
   `;
   return div;
 }
+
+let lastRecentKey = '';
 
 async function fetchRecent() {
   try {
     const res = await fetch('/api/recent?n=5');
     const files = await res.json();
+    const key = files ? files.map(f => f.path + ':' + f.mtime).join('|') : '';
+    if (key === lastRecentKey) return;
+    lastRecentKey = key;
     const list = document.getElementById('recent-list');
     list.innerHTML = '';
     if (!files || files.length === 0) {
       list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No HTML files found</div>';
       return;
     }
-    files.forEach(f => list.appendChild(createFileItem(f)));
+    files.forEach(f => list.appendChild(createFileItem(f, true)));
   } catch (e) {}
 }
+
+let lastTreeKey = '';
 
 async function fetchTree() {
   try {
@@ -909,6 +1015,9 @@ async function fetchTree() {
     const tree = await res.json();
     state.allFiles = collectFiles(tree);
     updateUnreadUI();
+    const key = state.allFiles.map(f => f.path + ':' + f.mtime).join('|');
+    if (key === lastTreeKey) return;
+    lastTreeKey = key;
     const list = document.getElementById('tree-list');
     list.innerHTML = '';
     if (!tree || tree.length === 0) return;
@@ -918,7 +1027,7 @@ async function fetchTree() {
 
 function renderNode(node) {
   if (node.isFile) {
-    return createFileItem({ path: node.path, name: node.name, mtime: node.mtime });
+    return createFileItem({ path: node.path, name: node.name, mtime: node.mtime }, false);
   }
 
   const container = document.createElement('div');
