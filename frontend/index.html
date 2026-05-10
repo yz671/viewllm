@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>viewllm</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-sidebar: #f8f9fa;
+  --bg-hover: #e9ecef;
+  --bg-active: #dee2e6;
+  --text: #212529;
+  --text-muted: #6c757d;
+  --border: #dee2e6;
+  --accent: #4263eb;
+  --accent-hover: #3b5bdb;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1b26;
+  --bg-sidebar: #16161e;
+  --bg-hover: #24283b;
+  --bg-active: #343b58;
+  --text: #c0caf5;
+  --text-muted: #565f89;
+  --border: #24283b;
+  --accent: #7aa2f7;
+  --accent-hover: #89b4fa;
+}
+
+[data-theme="solarized"] {
+  --bg: #fdf6e3;
+  --bg-sidebar: #eee8d5;
+  --bg-hover: #e4ddc8;
+  --bg-active: #d6cfb8;
+  --text: #657b83;
+  --text-muted: #93a1a1;
+  --border: #eee8d5;
+  --accent: #268bd2;
+  --accent-hover: #2aa198;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.theme-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.theme-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.mobile-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section {
+  padding: 12px;
+}
+
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.file-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+  margin-bottom: 2px;
+}
+
+.file-item:hover {
+  background: var(--bg-hover);
+}
+
+.file-item.active {
+  background: var(--bg-active);
+}
+
+.file-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.folder-item {
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.1s;
+}
+
+.folder-item:hover {
+  background: var(--bg-hover);
+}
+
+.folder-arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+  color: var(--text-muted);
+}
+
+.folder-arrow.open {
+  transform: rotate(90deg);
+}
+
+.folder-children {
+  display: none;
+  padding-left: 16px;
+}
+
+.folder-children.open {
+  display: block;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  position: relative;
+}
+
+.main iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.welcome {
+  text-align: center;
+  padding: 40px;
+}
+
+.welcome h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.welcome p {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 12px;
+}
+
+@media (max-width: 768px) {
+  .mobile-toggle {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 44px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+    z-index: 100;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: none;
+  }
+
+  .sidebar.mobile-open {
+    display: flex;
+  }
+
+  .content {
+    flex-direction: column;
+  }
+
+  .main {
+    width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app" data-theme="light">
+  <header class="header">
+    <div class="header-left">
+      <span class="logo">viewllm</span>
+      <button class="mobile-toggle" onclick="toggleMobileSidebar()">Files</button>
+    </div>
+    <div class="header-right">
+      <button class="theme-btn" data-theme="light" onclick="setTheme('light')">Light</button>
+      <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">Dark</button>
+      <button class="theme-btn" data-theme="solarized" onclick="setTheme('solarized')">Solarized</button>
+    </div>
+  </header>
+
+  <div class="content">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section" id="recent-section">
+        <div class="sidebar-section-title">Recent</div>
+        <div id="recent-list"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="sidebar-section" id="tree-section">
+        <div class="sidebar-section-title">Folders</div>
+        <div id="tree-list"></div>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+      <div class="welcome" id="welcome">
+        <h1>viewllm</h1>
+        <p>Select a report from the sidebar to view it here.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const state = {
+  currentFile: null,
+  theme: localStorage.getItem('viewllm-theme') || 'light',
+  mobileOpen: false,
+};
+
+function init() {
+  setTheme(state.theme);
+  loadFromHash();
+  fetchRecent();
+  fetchTree();
+  setInterval(fetchRecent, 5000);
+  setInterval(fetchTree, 10000);
+  window.addEventListener('hashchange', loadFromHash);
+}
+
+function setTheme(theme) {
+  state.theme = theme;
+  document.querySelector('.app').setAttribute('data-theme', theme);
+  localStorage.setItem('viewllm-theme', theme);
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+}
+
+function toggleMobileSidebar() {
+  state.mobileOpen = !state.mobileOpen;
+  document.getElementById('sidebar').classList.toggle('mobile-open', state.mobileOpen);
+}
+
+function loadFromHash() {
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    openFile(decodeURIComponent(hash), false);
+  }
+}
+
+function openFile(path, updateHash = true) {
+  state.currentFile = path;
+  if (updateHash) {
+    window.location.hash = encodeURIComponent(path);
+  }
+
+  const main = document.getElementById('main');
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+
+  let iframe = main.querySelector('iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    main.appendChild(iframe);
+  }
+  iframe.src = '/files/' + path;
+
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.path === path);
+  });
+
+  if (state.mobileOpen) {
+    toggleMobileSidebar();
+  }
+}
+
+function relativeTime(unixSeconds) {
+  const diff = Math.floor(Date.now() / 1000) - unixSeconds;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  return new Date(unixSeconds * 1000).toLocaleDateString();
+}
+
+function createFileItem(file) {
+  const div = document.createElement('div');
+  div.className = 'file-item' + (state.currentFile === file.path ? ' active' : '');
+  div.dataset.path = file.path;
+  div.onclick = () => openFile(file.path);
+  div.innerHTML = `
+    <span class="file-item-name" title="${file.path}">${file.name}</span>
+    <span class="file-item-meta">${relativeTime(file.mtime)}</span>
+  `;
+  return div;
+}
+
+async function fetchRecent() {
+  try {
+    const res = await fetch('/api/recent?n=5');
+    const files = await res.json();
+    const list = document.getElementById('recent-list');
+    list.innerHTML = '';
+    if (!files || files.length === 0) {
+      list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No HTML files found</div>';
+      return;
+    }
+    files.forEach(f => list.appendChild(createFileItem(f)));
+  } catch (e) {}
+}
+
+async function fetchTree() {
+  try {
+    const res = await fetch('/api/tree');
+    const tree = await res.json();
+    const list = document.getElementById('tree-list');
+    list.innerHTML = '';
+    if (!tree || tree.length === 0) return;
+    tree.forEach(node => list.appendChild(renderNode(node)));
+  } catch (e) {}
+}
+
+function renderNode(node) {
+  if (node.isFile) {
+    return createFileItem({ path: node.path, name: node.name, mtime: node.mtime });
+  }
+
+  const container = document.createElement('div');
+
+  const folder = document.createElement('div');
+  folder.className = 'folder-item';
+  folder.innerHTML = `<span class="folder-arrow">&#9654;</span> ${node.name}`;
+
+  const children = document.createElement('div');
+  children.className = 'folder-children';
+
+  if (node.children) {
+    node.children.forEach(child => children.appendChild(renderNode(child)));
+  }
+
+  folder.onclick = () => {
+    const arrow = folder.querySelector('.folder-arrow');
+    arrow.classList.toggle('open');
+    children.classList.toggle('open');
+  };
+
+  container.appendChild(folder);
+  container.appendChild(children);
+  return container;
+}
+
+init();
+</script>
+</body>
+</html>
