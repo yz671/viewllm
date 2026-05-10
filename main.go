@@ -34,17 +34,49 @@ type TreeNode struct {
 	ModTime  int64       `json:"mtime,omitempty"`
 }
 
-type Server struct {
-	rootDir string
-	mu      sync.RWMutex
-	files   []FileInfo
+var defaultExcludes = []string{
+	"venv", ".venv", "node_modules", ".git", "__pycache__",
+	".tox", ".mypy_cache", ".pytest_cache", ".eggs", "dist",
+	"build", ".next", ".nuxt", ".cache",
 }
 
-func NewServer(rootDir string) *Server {
-	s := &Server{rootDir: rootDir}
+type Server struct {
+	rootDir      string
+	mu           sync.RWMutex
+	files        []FileInfo
+	cliExcludes  []string
+	userExcludes []string
+}
+
+func NewServer(rootDir string, cliExcludes []string) *Server {
+	s := &Server{rootDir: rootDir, cliExcludes: cliExcludes}
 	s.scan()
 	go s.pollLoop()
 	return s
+}
+
+func (s *Server) isExcluded(name string) bool {
+	s.mu.RLock()
+	userExcludes := make([]string, len(s.userExcludes))
+	copy(userExcludes, s.userExcludes)
+	s.mu.RUnlock()
+
+	for _, pat := range defaultExcludes {
+		if strings.EqualFold(name, pat) {
+			return true
+		}
+	}
+	for _, pat := range s.cliExcludes {
+		if strings.EqualFold(name, pat) {
+			return true
+		}
+	}
+	for _, pat := range userExcludes {
+		if strings.EqualFold(name, pat) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) scan() {
@@ -54,6 +86,9 @@ func (s *Server) scan() {
 			return nil
 		}
 		if d.IsDir() {
+			if path != s.rootDir && s.isExcluded(d.Name()) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if !strings.HasSuffix(strings.ToLower(d.Name()), ".html") {
@@ -175,6 +210,74 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, fullPath)
 }
 
+func (s *Server) handleExcludes(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.mu.RLock()
+		userExcludes := make([]string, len(s.userExcludes))
+		copy(userExcludes, s.userExcludes)
+		s.mu.RUnlock()
+
+		resp := map[string][]string{
+			"defaults": defaultExcludes,
+			"cli":      s.cliExcludes,
+			"user":     userExcludes,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+
+	case http.MethodPost:
+		var req struct {
+			Action  string `json:"action"`
+			Pattern string `json:"pattern"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		req.Pattern = strings.TrimSpace(req.Pattern)
+		if req.Pattern == "" {
+			http.Error(w, "pattern required", http.StatusBadRequest)
+			return
+		}
+
+		s.mu.Lock()
+		switch req.Action {
+		case "add":
+			for _, p := range s.userExcludes {
+				if strings.EqualFold(p, req.Pattern) {
+					s.mu.Unlock()
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode(map[string]string{"status": "exists"})
+					return
+				}
+			}
+			s.userExcludes = append(s.userExcludes, req.Pattern)
+		case "remove":
+			filtered := s.userExcludes[:0]
+			for _, p := range s.userExcludes {
+				if !strings.EqualFold(p, req.Pattern) {
+					filtered = append(filtered, p)
+				}
+			}
+			s.userExcludes = filtered
+		default:
+			s.mu.Unlock()
+			http.Error(w, "action must be add or remove", http.StatusBadRequest)
+			return
+		}
+		s.mu.Unlock()
+
+		s.scan()
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -188,20 +291,23 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := 8090
 	var dir string
+	var cliExcludes []string
 
-	// Parse args manually to allow flags in any position: viewllm ./dir -p 8095
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-p" && i+1 < len(args) {
 			fmt.Sscanf(args[i+1], "%d", &port)
 			i++
-		} else if args[i][0] != '-' {
+		} else if args[i] == "-exclude" && i+1 < len(args) {
+			cliExcludes = append(cliExcludes, args[i+1])
+			i++
+		} else if len(args[i]) > 0 && args[i][0] != '-' {
 			dir = args[i]
 		}
 	}
 
 	if dir == "" {
-		fmt.Fprintf(os.Stderr, "Usage: viewllm <directory> [-p port]\n")
+		fmt.Fprintf(os.Stderr, "Usage: viewllm <directory> [-p port] [-exclude dir]...\n")
 		os.Exit(1)
 	}
 
@@ -215,11 +321,12 @@ func main() {
 		log.Fatalf("not a directory: %s", rootDir)
 	}
 
-	srv := NewServer(rootDir)
+	srv := NewServer(rootDir, cliExcludes)
 
 	http.HandleFunc("/", srv.handleIndex)
 	http.HandleFunc("/api/recent", srv.handleRecent)
 	http.HandleFunc("/api/tree", srv.handleTree)
+	http.HandleFunc("/api/excludes", srv.handleExcludes)
 	http.HandleFunc("/files/", srv.handleFiles)
 
 	addr := fmt.Sprintf(":%d", port)

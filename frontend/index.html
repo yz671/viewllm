@@ -86,27 +86,279 @@ body {
   gap: 8px;
 }
 
-.theme-btn {
+.settings-btn {
   background: none;
   border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 13px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 16px;
+  line-height: 1;
   transition: all 0.15s;
 }
 
-.theme-btn:hover {
+.settings-btn:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.theme-btn.active {
-  background: var(--accent);
-  color: #fff;
+.settings-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 200;
+}
+
+.settings-overlay.open { display: block; }
+
+.settings-panel {
+  position: fixed;
+  top: 0; right: -360px; bottom: 0;
+  width: 340px;
+  max-width: 90vw;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--border);
+  z-index: 201;
+  overflow-y: auto;
+  transition: right 0.25s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+}
+
+.settings-panel.open { right: 0; }
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.settings-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.settings-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.settings-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.theme-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s;
+  border: none;
+  background: none;
+  color: var(--text);
+  width: 100%;
+  text-align: left;
+}
+
+.theme-option:hover { background: var(--bg-hover); }
+.theme-option.active { background: var(--bg-active); font-weight: 500; }
+
+.theme-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.exclude-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.exclude-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: monospace;
+  background: var(--bg);
+}
+
+.exclude-item-default {
+  color: var(--text-muted);
+}
+
+.exclude-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.exclude-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.exclude-add {
+  display: flex;
+  gap: 6px;
+}
+
+.exclude-add input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: monospace;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.exclude-add input:focus {
   border-color: var(--accent);
 }
+
+.exclude-add button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.exclude-add button:hover {
+  background: var(--accent-hover);
+}
+
+.exclude-group-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 6px 0 4px 2px;
+}
+
+.unread-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.file-item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.file-item-name-row .file-item-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.unread-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.unread-badge:empty { display: none; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.section-header .sidebar-section-title {
+  margin-bottom: 0;
+}
+
+.mark-all-read {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.mark-all-read:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.folder-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin-left: auto;
+}
+
+.folder-badge:empty { display: none; }
 
 .mobile-toggle {
   display: none;
@@ -222,6 +474,7 @@ body {
   justify-content: center;
   background: var(--bg);
   position: relative;
+  overflow: hidden;
 }
 
 .main iframe {
@@ -231,6 +484,51 @@ body {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+.pull-indicator {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-muted);
+  transition: top 0.15s ease, transform 0.15s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.pull-indicator.visible {
+  top: 8px;
+}
+
+.pull-indicator.ready {
+  color: var(--accent);
+}
+
+.pull-indicator.refreshing {
+  top: 8px;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: translateX(-50%) rotate(0deg); }
+  to { transform: translateX(-50%) rotate(360deg); }
+}
+
+.pull-touch-zone {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 30px;
+  z-index: 5;
 }
 
 .welcome {
@@ -295,19 +593,47 @@ body {
   <header class="header">
     <div class="header-left">
       <span class="logo">viewllm</span>
+      <span class="unread-badge" id="header-badge"></span>
       <button class="mobile-toggle" onclick="toggleMobileSidebar()">Files</button>
     </div>
     <div class="header-right">
-      <button class="theme-btn" data-theme="light" onclick="setTheme('light')">Light</button>
-      <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">Dark</button>
-      <button class="theme-btn" data-theme="solarized" onclick="setTheme('solarized')">Solarized</button>
+      <button class="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
     </div>
   </header>
+
+  <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-header">
+      Settings
+      <button class="settings-close" onclick="toggleSettings()">&times;</button>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">Theme</div>
+      <div class="theme-options" id="theme-options">
+        <button class="theme-option" data-theme="light" onclick="setTheme('light')">
+          <span class="theme-dot" style="background:#ffffff;border-color:#dee2e6"></span> Light
+        </button>
+        <button class="theme-option" data-theme="dark" onclick="setTheme('dark')">
+          <span class="theme-dot" style="background:#1a1b26;border-color:#24283b"></span> Dark
+        </button>
+        <button class="theme-option" data-theme="solarized" onclick="setTheme('solarized')">
+          <span class="theme-dot" style="background:#fdf6e3;border-color:#eee8d5"></span> Solarized
+        </button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">Ignored Folders</div>
+      <div id="excludes-content"></div>
+    </div>
+  </div>
 
   <div class="content">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-section" id="recent-section">
-        <div class="sidebar-section-title">Recent</div>
+        <div class="section-header">
+          <div class="sidebar-section-title">Recent</div>
+          <button class="mark-all-read" onclick="markAllAsRead()" title="Mark all as read">Mark all read</button>
+        </div>
         <div id="recent-list"></div>
       </div>
       <div class="divider"></div>
@@ -318,6 +644,8 @@ body {
     </aside>
 
     <main class="main" id="main">
+      <div class="pull-indicator" id="pull-indicator">&#8635;</div>
+      <div class="pull-touch-zone" id="pull-touch-zone"></div>
       <div class="welcome" id="welcome">
         <h1>viewllm</h1>
         <p>Select a report from the sidebar to view it here.</p>
@@ -331,15 +659,66 @@ const state = {
   currentFile: null,
   theme: localStorage.getItem('viewllm-theme') || 'light',
   mobileOpen: false,
+  settingsOpen: false,
+  allFiles: [],
 };
+
+function getReadMap() {
+  try { return JSON.parse(localStorage.getItem('viewllm-read') || '{}'); } catch { return {}; }
+}
+
+function saveReadMap(map) {
+  localStorage.setItem('viewllm-read', JSON.stringify(map));
+}
+
+function isUnread(path, mtime) {
+  const map = getReadMap();
+  return !map[path] || map[path] < mtime;
+}
+
+function markAsRead(path, mtime) {
+  const map = getReadMap();
+  map[path] = mtime;
+  saveReadMap(map);
+  updateUnreadUI();
+}
+
+function markAllAsRead() {
+  const map = getReadMap();
+  state.allFiles.forEach(f => { map[f.path] = f.mtime; });
+  saveReadMap(map);
+  updateUnreadUI();
+  fetchRecent();
+  fetchTree();
+}
+
+function collectFiles(nodes) {
+  const files = [];
+  (nodes || []).forEach(n => {
+    if (n.isFile) files.push({ path: n.path, mtime: n.mtime });
+    if (n.children) files.push(...collectFiles(n.children));
+  });
+  return files;
+}
+
+function countUnread(files) {
+  const map = getReadMap();
+  return files.filter(f => !map[f.path] || map[f.path] < f.mtime).length;
+}
+
+function updateUnreadUI() {
+  const total = countUnread(state.allFiles);
+  const badge = document.getElementById('header-badge');
+  badge.textContent = total > 0 ? total : '';
+}
 
 function init() {
   setTheme(state.theme);
   loadFromHash();
   fetchRecent();
   fetchTree();
-  setInterval(fetchRecent, 5000);
-  setInterval(fetchTree, 10000);
+  setInterval(fetchRecent, 2000);
+  setInterval(fetchTree, 5000);
   window.addEventListener('hashchange', loadFromHash);
 }
 
@@ -347,9 +726,86 @@ function setTheme(theme) {
   state.theme = theme;
   document.querySelector('.app').setAttribute('data-theme', theme);
   localStorage.setItem('viewllm-theme', theme);
-  document.querySelectorAll('.theme-btn').forEach(btn => {
+  document.querySelectorAll('.theme-option').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === theme);
   });
+}
+
+function toggleSettings() {
+  state.settingsOpen = !state.settingsOpen;
+  document.getElementById('settings-overlay').classList.toggle('open', state.settingsOpen);
+  document.getElementById('settings-panel').classList.toggle('open', state.settingsOpen);
+  if (state.settingsOpen) fetchExcludes();
+}
+
+async function fetchExcludes() {
+  try {
+    const res = await fetch('/api/excludes');
+    const data = await res.json();
+    renderExcludes(data);
+  } catch (e) {}
+}
+
+function renderExcludes(data) {
+  const container = document.getElementById('excludes-content');
+  let html = '';
+
+  if (data.defaults && data.defaults.length) {
+    html += '<div class="exclude-group-label">Default</div><div class="exclude-list">';
+    data.defaults.forEach(p => {
+      html += `<div class="exclude-item exclude-item-default"><span>${p}</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  if (data.cli && data.cli.length) {
+    html += '<div class="exclude-group-label">CLI flags</div><div class="exclude-list">';
+    data.cli.forEach(p => {
+      html += `<div class="exclude-item exclude-item-default"><span>${p}</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="exclude-group-label">Custom</div><div class="exclude-list">';
+  if (data.user && data.user.length) {
+    data.user.forEach(p => {
+      html += `<div class="exclude-item"><span>${p}</span><button class="exclude-remove" onclick="removeExclude('${p}')" title="Remove">&times;</button></div>`;
+    });
+  }
+  html += '</div>';
+
+  html += `<div class="exclude-add">
+    <input type="text" id="exclude-input" placeholder="folder name" onkeydown="if(event.key==='Enter')addExclude()">
+    <button onclick="addExclude()">Add</button>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+async function addExclude() {
+  const input = document.getElementById('exclude-input');
+  const pattern = input.value.trim();
+  if (!pattern) return;
+  await fetch('/api/excludes', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({action: 'add', pattern})
+  });
+  input.value = '';
+  fetchExcludes();
+  fetchRecent();
+  fetchTree();
+}
+
+async function removeExclude(pattern) {
+  await fetch('/api/excludes', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({action: 'remove', pattern})
+  });
+  fetchExcludes();
+  fetchRecent();
+  fetchTree();
 }
 
 function toggleMobileSidebar() {
@@ -370,6 +826,9 @@ function openFile(path, updateHash = true) {
     window.location.hash = encodeURIComponent(path);
   }
 
+  const file = state.allFiles.find(f => f.path === path);
+  if (file) markAsRead(path, file.mtime);
+
   const main = document.getElementById('main');
   const welcome = document.getElementById('welcome');
   if (welcome) welcome.remove();
@@ -383,6 +842,8 @@ function openFile(path, updateHash = true) {
 
   document.querySelectorAll('.file-item').forEach(el => {
     el.classList.toggle('active', el.dataset.path === path);
+    const dot = el.querySelector('.unread-dot');
+    if (dot && el.dataset.path === path) dot.remove();
   });
 
   if (state.mobileOpen) {
@@ -404,8 +865,12 @@ function createFileItem(file) {
   div.className = 'file-item' + (state.currentFile === file.path ? ' active' : '');
   div.dataset.path = file.path;
   div.onclick = () => openFile(file.path);
+  const unread = isUnread(file.path, file.mtime);
   div.innerHTML = `
-    <span class="file-item-name" title="${file.path}">${file.name}</span>
+    <div class="file-item-name-row">
+      <span class="file-item-name" title="${file.path}">${file.name}</span>
+      ${unread ? '<span class="unread-dot"></span>' : ''}
+    </div>
     <span class="file-item-meta">${relativeTime(file.mtime)}</span>
   `;
   return div;
@@ -429,6 +894,8 @@ async function fetchTree() {
   try {
     const res = await fetch('/api/tree');
     const tree = await res.json();
+    state.allFiles = collectFiles(tree);
+    updateUnreadUI();
     const list = document.getElementById('tree-list');
     list.innerHTML = '';
     if (!tree || tree.length === 0) return;
@@ -442,10 +909,12 @@ function renderNode(node) {
   }
 
   const container = document.createElement('div');
+  const folderFiles = collectFiles(node.children || []);
+  const unreadCount = countUnread(folderFiles);
 
   const folder = document.createElement('div');
   folder.className = 'folder-item';
-  folder.innerHTML = `<span class="folder-arrow">&#9654;</span> ${node.name}`;
+  folder.innerHTML = `<span class="folder-arrow">&#9654;</span> ${node.name}${unreadCount > 0 ? '<span class="folder-badge">' + unreadCount + '</span>' : ''}`;
 
   const children = document.createElement('div');
   children.className = 'folder-children';
@@ -464,6 +933,50 @@ function renderNode(node) {
   container.appendChild(children);
   return container;
 }
+
+function refreshIframe() {
+  const iframe = document.querySelector('#main iframe');
+  if (iframe && state.currentFile) {
+    iframe.src = '/files/' + state.currentFile + '?t=' + Date.now();
+  }
+}
+
+(function initPullToRefresh() {
+  const zone = document.getElementById('pull-touch-zone');
+  const indicator = document.getElementById('pull-indicator');
+  let startY = 0;
+  let pulling = false;
+  const threshold = 60;
+
+  zone.addEventListener('touchstart', (e) => {
+    if (!state.currentFile) return;
+    startY = e.touches[0].clientY;
+    pulling = true;
+    indicator.className = 'pull-indicator';
+  }, { passive: true });
+
+  zone.addEventListener('touchmove', (e) => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 10) {
+      indicator.classList.add('visible');
+      if (dy > threshold) indicator.classList.add('ready');
+      else indicator.classList.remove('ready');
+    }
+  }, { passive: true });
+
+  zone.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (indicator.classList.contains('ready')) {
+      indicator.className = 'pull-indicator refreshing';
+      refreshIframe();
+      setTimeout(() => { indicator.className = 'pull-indicator'; }, 800);
+    } else {
+      indicator.className = 'pull-indicator';
+    }
+  });
+})();
 
 init();
 </script>
