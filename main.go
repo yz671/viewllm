@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -237,6 +238,9 @@ func (s *Server) pollLoop() {
 
 func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 	n := 5
+	if v, err := strconv.Atoi(r.URL.Query().Get("n")); err == nil && v > 0 && v <= 50 {
+		n = v
+	}
 	s.mu.RLock()
 	files := make([]FileInfo, len(s.files))
 	copy(files, s.files)

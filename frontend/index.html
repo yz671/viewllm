@@ -324,6 +324,21 @@ body {
   transform: translateX(16px);
 }
 
+.settings-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.settings-select:focus {
+  border-color: var(--accent);
+}
+
 .unread-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -713,6 +728,19 @@ body {
       </label>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">Recent Files</div>
+      <label class="toggle-row">
+        <span>Number to show</span>
+        <select id="recent-count-select" onchange="setRecentCount(this.value)" class="settings-select">
+          <option value="3">3</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">Ignored Folders</div>
       <div id="excludes-content"></div>
     </div>
@@ -754,6 +782,7 @@ const state = {
   allFiles: [],
   textPreview: localStorage.getItem('viewllm-textPreview') !== 'false',
   thumbPreview: localStorage.getItem('viewllm-thumbPreview') !== 'false',
+  recentCount: parseInt(localStorage.getItem('viewllm-recentCount')) || 5,
 };
 
 function getReadMap() {
@@ -831,9 +860,17 @@ function togglePreviewSetting(key, value) {
   fetchRecent();
 }
 
+function setRecentCount(val) {
+  state.recentCount = parseInt(val);
+  localStorage.setItem('viewllm-recentCount', state.recentCount);
+  lastRecentKey = '';
+  fetchRecent();
+}
+
 function syncPreviewToggles() {
   document.getElementById('toggle-text-preview').checked = state.textPreview;
   document.getElementById('toggle-thumb-preview').checked = state.thumbPreview;
+  document.getElementById('recent-count-select').value = state.recentCount;
 }
 
 function toggleSettings() {
@@ -992,7 +1029,7 @@ let lastRecentKey = '';
 
 async function fetchRecent() {
   try {
-    const res = await fetch('/api/recent?n=5');
+    const res = await fetch('/api/recent?n=' + state.recentCount);
     const files = await res.json();
     const key = files ? files.map(f => f.path + ':' + f.mtime).join('|') : '';
     if (key === lastRecentKey) return;
