@@ -117,12 +117,34 @@ Share trading strategy comparisons, backtest results, and signal analysis report
 Export notebooks to HTML and serve them with a proper browse experience instead of raw file listings.
 
 ### Remote development
-Working on a remote server via SSH or WSL? Start viewllm there and access it from your local browser. Pair with a tunnel for mobile access:
+Working on a remote server via SSH or WSL? Start viewllm there and access it from your local browser.
+
+## Sharing via Tunnel
+
+If you're behind a firewall, NAT, or WSL where port forwarding is difficult, you can use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose viewllm to the internet with a public URL — no port forwarding, no domain needed.
+
+**Quick start (zero config, no account required):**
 
 ```bash
+# Start viewllm
 viewllm ./reports -p 8095 &
+
+# Start a tunnel (gives you a random public URL)
 npx cloudflared tunnel --url http://localhost:8095
 ```
+
+This prints a URL like `https://random-words.trycloudflare.com` that anyone can open — on their phone, laptop, or share with teammates.
+
+**When to use this:**
+- Working in **WSL** and can't access localhost from Windows or other devices
+- On a **remote server** (SSH) and want to view reports on your local machine or phone
+- Want to **share reports with teammates** without setting up a public server
+- Quick **demo or presentation** — spin up a URL in seconds
+
+**Notes:**
+- Free quick tunnels are temporary — the URL changes each time you restart cloudflared
+- No authentication by default — anyone with the URL can view your reports
+- For persistent URLs, create a free [Cloudflare account](https://dash.cloudflare.com) and set up a named tunnel
 
 ## How It Works
 
