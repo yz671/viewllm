@@ -860,7 +860,7 @@ body {
       <div id="excludes-content"></div>
     </div>
     <div class="settings-footer">
-      viewllm v0.3.0 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.3.1 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1046,6 +1046,12 @@ async function fetchExcludes() {
   } catch (e) {}
 }
 
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 function renderExcludes(data) {
   const container = document.getElementById('excludes-content');
   let html = '';
@@ -1057,7 +1063,7 @@ function renderExcludes(data) {
     </div>
     <div class="exclude-collapsible-body"><div class="exclude-list">`;
     builtIn.forEach(p => {
-      html += `<div class="exclude-item exclude-item-default"><span>${p}</span></div>`;
+      html += `<div class="exclude-item exclude-item-default"><span>${esc(p)}</span></div>`;
     });
     html += '</div></div>';
   }
@@ -1065,7 +1071,7 @@ function renderExcludes(data) {
   if (data.user && data.user.length) {
     html += '<div class="exclude-group-label">Custom</div><div class="exclude-list">';
     data.user.forEach(p => {
-      html += `<div class="exclude-item"><span>${p}</span><button class="exclude-remove" onclick="removeExclude('${p}')" title="Remove">&times;</button></div>`;
+      html += `<div class="exclude-item"><span>${esc(p)}</span><button class="exclude-remove" onclick="removeExclude('${esc(p)}')" title="Remove">&times;</button></div>`;
     });
     html += '</div>';
   }

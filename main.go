@@ -159,6 +159,7 @@ type Server struct {
 	rootDir      string
 	mu           sync.RWMutex
 	files        []FileInfo
+	previewMu    sync.Mutex
 	previews     map[string]previewCache
 	cliExcludes  []string
 	userExcludes []string
@@ -231,6 +232,18 @@ func (s *Server) scan() {
 	s.mu.Lock()
 	s.files = files
 	s.mu.Unlock()
+
+	s.previewMu.Lock()
+	active := make(map[string]bool, len(files))
+	for _, f := range files {
+		active[f.Path] = true
+	}
+	for k := range s.previews {
+		if !active[k] {
+			delete(s.previews, k)
+		}
+	}
+	s.previewMu.Unlock()
 }
 
 func (s *Server) pollLoop() {
@@ -258,7 +271,7 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 		files = files[:n]
 	}
 
-	s.mu.Lock()
+	s.previewMu.Lock()
 	for i := range files {
 		cached, ok := s.previews[files[i].Path]
 		if ok && cached.mtime == files[i].ModTime {
@@ -269,7 +282,7 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 			files[i].Preview = p
 		}
 	}
-	s.mu.Unlock()
+	s.previewMu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(files)
@@ -327,19 +340,20 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clean := filepath.Clean(reqPath)
-	if strings.Contains(clean, "..") {
+	fullPath := filepath.Join(s.rootDir, clean)
+
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil || !strings.HasPrefix(absPath, s.rootDir+string(filepath.Separator)) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
-	fullPath := filepath.Join(s.rootDir, clean)
-
-	if !strings.HasSuffix(strings.ToLower(fullPath), ".html") {
+	if !strings.HasSuffix(strings.ToLower(absPath), ".html") {
 		http.Error(w, "only HTML files are served", http.StatusForbidden)
 		return
 	}
 
-	http.ServeFile(w, r, fullPath)
+	http.ServeFile(w, r, absPath)
 }
 
 func (s *Server) handleExcludes(w http.ResponseWriter, r *http.Request) {
