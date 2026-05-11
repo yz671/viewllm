@@ -8,13 +8,15 @@ One command. Zero config. Works everywhere.
 npx viewllm ./reports
 ```
 
-![viewllm desktop screenshot](docs/screenshots/ScreenShot_2026-05-11_111742_772.png)
+<p align="center">
+  <img src="docs/screenshots/ScreenShot_2026-05-11_111742_772.png" alt="viewllm desktop" width="720">
+</p>
 
 <details>
 <summary>Mobile view</summary>
-
-![viewllm mobile screenshot](docs/screenshots/Image_20260511115901_15_618.jpg)
-
+<p align="center">
+  <img src="docs/screenshots/Image_20260511115901_15_618.jpg" alt="viewllm mobile" width="280">
+</p>
 </details>
 
 ---
