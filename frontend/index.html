@@ -280,6 +280,38 @@ body {
   margin: 6px 0 4px 2px;
 }
 
+.exclude-collapsible {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.exclude-collapsible:hover { background: var(--bg-hover); }
+
+.exclude-collapsible .folder-arrow {
+  font-size: 9px;
+  transition: transform 0.15s;
+}
+
+.exclude-collapsible.open .folder-arrow {
+  transform: rotate(90deg);
+}
+
+.exclude-collapsible-body {
+  display: none;
+  margin-bottom: 6px;
+}
+
+.exclude-collapsible.open + .exclude-collapsible-body {
+  display: block;
+}
+
 .toggle-row {
   display: flex;
   align-items: center;
@@ -732,6 +764,7 @@ body {
       <label class="toggle-row">
         <span>Number to show</span>
         <select id="recent-count-select" onchange="setRecentCount(this.value)" class="settings-select">
+          <option value="0">Off</option>
           <option value="3">3</option>
           <option value="5">5</option>
           <option value="10">10</option>
@@ -895,29 +928,25 @@ function renderExcludes(data) {
   const container = document.getElementById('excludes-content');
   let html = '';
 
-  if (data.defaults && data.defaults.length) {
-    html += '<div class="exclude-group-label">Default</div><div class="exclude-list">';
-    data.defaults.forEach(p => {
+  const builtIn = [...(data.defaults || []), ...(data.cli || [])];
+  if (builtIn.length) {
+    html += `<div class="exclude-collapsible" onclick="this.classList.toggle('open')">
+      <span class="folder-arrow">&#9654;</span> Built-in (${builtIn.length})
+    </div>
+    <div class="exclude-collapsible-body"><div class="exclude-list">`;
+    builtIn.forEach(p => {
       html += `<div class="exclude-item exclude-item-default"><span>${p}</span></div>`;
     });
-    html += '</div>';
+    html += '</div></div>';
   }
 
-  if (data.cli && data.cli.length) {
-    html += '<div class="exclude-group-label">CLI flags</div><div class="exclude-list">';
-    data.cli.forEach(p => {
-      html += `<div class="exclude-item exclude-item-default"><span>${p}</span></div>`;
-    });
-    html += '</div>';
-  }
-
-  html += '<div class="exclude-group-label">Custom</div><div class="exclude-list">';
   if (data.user && data.user.length) {
+    html += '<div class="exclude-group-label">Custom</div><div class="exclude-list">';
     data.user.forEach(p => {
       html += `<div class="exclude-item"><span>${p}</span><button class="exclude-remove" onclick="removeExclude('${p}')" title="Remove">&times;</button></div>`;
     });
+    html += '</div>';
   }
-  html += '</div>';
 
   html += `<div class="exclude-add">
     <input type="text" id="exclude-input" placeholder="folder name" onkeydown="if(event.key==='Enter')addExclude()">
@@ -1028,6 +1057,16 @@ function createFileItem(file, showThumb) {
 let lastRecentKey = '';
 
 async function fetchRecent() {
+  const section = document.getElementById('recent-section');
+  const divider = section.nextElementSibling;
+  if (state.recentCount === 0) {
+    section.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    lastRecentKey = '';
+    return;
+  }
+  section.style.display = '';
+  if (divider) divider.style.display = '';
   try {
     const res = await fetch('/api/recent?n=' + state.recentCount);
     const files = await res.json();
