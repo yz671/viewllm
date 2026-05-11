@@ -80,13 +80,14 @@ go build -o viewllm .
 ## Usage
 
 ```
-viewllm <directory> [-p port] [-exclude dir]...
+viewllm <directory> [-p port] [-exclude dir]... [-tunnel]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-p` | `8090` | Port to serve on |
 | `-exclude` | — | Additional directories to ignore (repeatable) |
+| `-tunnel` | off | Start a Cloudflare Tunnel for public access |
 
 **Examples:**
 
@@ -126,14 +127,19 @@ If you're behind a firewall, NAT, or WSL where port forwarding is difficult, you
 **Quick start (zero config, no account required):**
 
 ```bash
-# Start viewllm
-viewllm ./reports -p 8095 &
+# One command — starts viewllm and a tunnel together
+viewllm ./reports -p 8095 -tunnel
+```
 
-# Start a tunnel (gives you a random public URL)
-npx cloudflared tunnel --url http://localhost:8095
+Or with npx:
+
+```bash
+npx viewllm ./reports -p 8095 -tunnel
 ```
 
 This prints a URL like `https://random-words.trycloudflare.com` that anyone can open — on their phone, laptop, or share with teammates.
+
+Requires `cloudflared` to be installed ([download](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)) or available via `npx`.
 
 **When to use this:**
 - Working in **WSL** and can't access localhost from Windows or other devices

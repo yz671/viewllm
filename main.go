@@ -4,15 +4,19 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"bufio"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -416,8 +420,60 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+func findCloudflared() string {
+	if p, err := exec.LookPath("cloudflared"); err == nil {
+		return p
+	}
+	if p, err := exec.LookPath("npx"); err == nil {
+		return p
+	}
+	return ""
+}
+
+func startTunnel(port int) *exec.Cmd {
+	bin := findCloudflared()
+	if bin == "" {
+		fmt.Fprintln(os.Stderr, "tunnel: cloudflared not found. Install it or run: npm install -g cloudflared")
+		os.Exit(1)
+	}
+
+	var cmd *exec.Cmd
+	if strings.HasSuffix(bin, "npx") || strings.HasSuffix(bin, "npx.cmd") {
+		cmd = exec.Command(bin, "cloudflared", "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
+	} else {
+		cmd = exec.Command(bin, "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatalf("tunnel: %v", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("tunnel: failed to start cloudflared: %v", err)
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "trycloudflare.com") || strings.Contains(line, "cfargotunnel.com") {
+				for _, word := range strings.Fields(line) {
+					if strings.HasPrefix(word, "https://") {
+						fmt.Printf("\n  Tunnel URL: %s\n\n", word)
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	return cmd
+}
+
 func main() {
 	port := 8090
+	tunnel := false
 	var dir string
 	var cliExcludes []string
 
@@ -429,13 +485,15 @@ func main() {
 		} else if args[i] == "-exclude" && i+1 < len(args) {
 			cliExcludes = append(cliExcludes, args[i+1])
 			i++
+		} else if args[i] == "-tunnel" {
+			tunnel = true
 		} else if len(args[i]) > 0 && args[i][0] != '-' {
 			dir = args[i]
 		}
 	}
 
 	if dir == "" {
-		fmt.Fprintf(os.Stderr, "Usage: viewllm <directory> [-p port] [-exclude dir]...\n")
+		fmt.Fprintf(os.Stderr, "Usage: viewllm <directory> [-p port] [-exclude dir]... [-tunnel]\n")
 		os.Exit(1)
 	}
 
@@ -459,5 +517,22 @@ func main() {
 
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Printf("viewllm serving %s on http://0.0.0.0%s\n", rootDir, addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+
+	var tunnelCmd *exec.Cmd
+	if tunnel {
+		go func() {
+			log.Fatal(http.ListenAndServe(addr, nil))
+		}()
+		tunnelCmd = startTunnel(port)
+
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		fmt.Println("\nShutting down...")
+		if tunnelCmd.Process != nil {
+			tunnelCmd.Process.Kill()
+		}
+	} else {
+		log.Fatal(http.ListenAndServe(addr, nil))
+	}
 }
