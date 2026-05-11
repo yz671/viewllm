@@ -694,14 +694,17 @@ body {
     max-height: 60vh;
     z-index: 100;
     border-right: none;
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-bottom: 20px solid var(--bg-sidebar);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-height: 60vh;
     display: none;
   }
 
   .sidebar.mobile-open {
     display: flex;
   }
+
+
 
   .content {
     flex-direction: column;
@@ -836,6 +839,8 @@ function markAsRead(path, mtime) {
   map[path] = mtime;
   saveReadMap(map);
   updateUnreadUI();
+  lastTreeKey = '';
+  fetchTree();
 }
 
 function markAllAsRead() {
@@ -843,6 +848,8 @@ function markAllAsRead() {
   state.allFiles.forEach(f => { map[f.path] = f.mtime; });
   saveReadMap(map);
   updateUnreadUI();
+  lastRecentKey = '';
+  lastTreeKey = '';
   fetchRecent();
   fetchTree();
 }

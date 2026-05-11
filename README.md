@@ -8,8 +8,14 @@ One command. Zero config. Works everywhere.
 npx viewllm ./reports
 ```
 
-<!-- TODO: Add screenshot/GIF here -->
-<!-- ![viewllm screenshot](docs/screenshot.png) -->
+![viewllm desktop screenshot](docs/screenshots/ScreenShot_2026-05-11_111742_772.png)
+
+<details>
+<summary>Mobile view</summary>
+
+![viewllm mobile screenshot](docs/screenshots/Image_20260511115901_15_618.jpg)
+
+</details>
 
 ---
 
