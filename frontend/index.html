@@ -583,6 +583,93 @@ body {
   color: var(--text-muted);
 }
 
+.search-preview-panel {
+  position: fixed;
+  left: 261px;
+  width: 380px;
+  max-height: 420px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  z-index: 150;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+}
+
+.search-preview-panel.visible {
+  display: flex;
+}
+
+.search-preview-header {
+  padding: 12px 14px 8px;
+}
+
+.search-preview-filename {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-preview-dir {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-preview-meta {
+  padding: 0 14px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 12px;
+}
+
+.search-preview-text {
+  padding: 0 14px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.search-preview-thumb {
+  margin: 0 14px 14px;
+  height: 200px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.search-preview-thumb iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 400%;
+  height: 800px;
+  border: none;
+  transform: scale(0.25);
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .search-preview-panel { display: none !important; }
+}
+
 .sidebar-section {
   padding: 12px;
 }
@@ -949,7 +1036,7 @@ body {
       <div id="excludes-content"></div>
     </div>
     <div class="settings-footer">
-      viewllm v0.3.1 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.4.1 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -965,6 +1052,20 @@ body {
       <div id="search-results" class="search-results" style="display:none">
         <div class="search-results-title">Results</div>
         <div id="search-results-list"></div>
+      </div>
+      <div class="search-preview-panel" id="search-preview-panel">
+        <div class="search-preview-header">
+          <div class="search-preview-filename" id="sp-filename"></div>
+          <div class="search-preview-dir" id="sp-dir"></div>
+        </div>
+        <div class="search-preview-meta">
+          <span id="sp-time"></span>
+          <span id="sp-size"></span>
+        </div>
+        <div class="search-preview-text" id="sp-text"></div>
+        <div class="search-preview-thumb" id="sp-thumb">
+          <iframe id="sp-iframe" sandbox="allow-same-origin" tabindex="-1"></iframe>
+        </div>
       </div>
       <div id="default-view">
         <div class="sidebar-section" id="recent-section">
@@ -1439,6 +1540,7 @@ function onSearch(query) {
   if (!q) {
     results.style.display = 'none';
     defaultView.style.display = '';
+    hideSearchPreview(false);
     return;
   }
 
@@ -1461,7 +1563,7 @@ function onSearch(query) {
     const div = document.createElement('div');
     div.className = 'file-item' + (state.currentFile === f.path ? ' active' : '');
     div.dataset.path = f.path;
-    div.onclick = () => { openFile(f.path); clearSearch(); };
+    div.onclick = () => { openFile(f.path); clearSearch(); hideSearchPreview(false); };
     const unread = isUnread(f.path, f.mtime);
     const preview = state.previewMap[f.path];
     const previewHtml = (state.textPreview && preview) ? `<div class="file-item-preview">${esc(preview)}</div>` : '';
@@ -1476,6 +1578,14 @@ function onSearch(query) {
       <span class="file-item-meta">${relativeTime(f.mtime)}</span>
       ${previewHtml}
     `;
+    div.addEventListener('mouseenter', () => {
+      clearTimeout(previewTimer);
+      showSearchPreview(f, div);
+    });
+    div.addEventListener('mouseleave', () => {
+      previewActive = false;
+      hideSearchPreview(true);
+    });
     list.appendChild(div);
   });
 }
@@ -1492,6 +1602,75 @@ function clearSearch() {
   onSearch('');
   input.focus();
 }
+
+let previewTimer = null;
+let previewActive = false;
+
+function showSearchPreview(file, itemEl) {
+  const panel = document.getElementById('search-preview-panel');
+  const fileName = file.path.split('/').pop();
+  const dirPath = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : '';
+
+  document.getElementById('sp-filename').textContent = fileName;
+  document.getElementById('sp-dir').textContent = dirPath || '/';
+  document.getElementById('sp-time').textContent = relativeTime(file.mtime);
+
+  const sizeFile = state.allFiles.find(f => f.path === file.path);
+  document.getElementById('sp-size').textContent = '';
+
+  const preview = state.previewMap[file.path];
+  const textEl = document.getElementById('sp-text');
+  if (preview) {
+    textEl.textContent = preview;
+    textEl.style.display = '';
+  } else {
+    textEl.style.display = 'none';
+  }
+
+  document.getElementById('sp-iframe').src = '/files/' + file.path + '?v=' + file.mtime;
+
+  const rect = itemEl.getBoundingClientRect();
+  const sidebarRect = document.getElementById('sidebar').getBoundingClientRect();
+  const panelHeight = 420;
+  let top = rect.top;
+  if (top + panelHeight > window.innerHeight - 10) {
+    top = window.innerHeight - panelHeight - 10;
+  }
+  if (top < 50) top = 50;
+  panel.style.top = top + 'px';
+  panel.style.left = (sidebarRect.right + 4) + 'px';
+  panel.classList.add('visible');
+  previewActive = true;
+}
+
+function hideSearchPreview(delayed) {
+  if (delayed) {
+    previewTimer = setTimeout(() => {
+      if (!previewActive) {
+        const panel = document.getElementById('search-preview-panel');
+        panel.classList.remove('visible');
+        document.getElementById('sp-iframe').src = '';
+      }
+    }, 150);
+  } else {
+    const panel = document.getElementById('search-preview-panel');
+    panel.classList.remove('visible');
+    document.getElementById('sp-iframe').src = '';
+    previewActive = false;
+  }
+}
+
+(function() {
+  const panel = document.getElementById('search-preview-panel');
+  panel.addEventListener('mouseenter', () => {
+    clearTimeout(previewTimer);
+    previewActive = true;
+  });
+  panel.addEventListener('mouseleave', () => {
+    previewActive = false;
+    hideSearchPreview(true);
+  });
+})();
 
 init();
 </script>

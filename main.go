@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"bufio"
+	"net"
 	"io/fs"
 	"log"
 	"net/http"
@@ -507,8 +508,7 @@ func main() {
 	}
 
 	if dir == "" {
-		fmt.Fprintf(os.Stderr, "Usage: viewllm <directory> [-p port] [-exclude dir]... [-tunnel]\n")
-		os.Exit(1)
+		dir = "."
 	}
 
 	rootDir, err := filepath.Abs(dir)
@@ -529,13 +529,34 @@ func main() {
 	http.HandleFunc("/api/excludes", srv.handleExcludes)
 	http.HandleFunc("/files/", srv.handleFiles)
 
-	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("viewllm serving %s on http://0.0.0.0%s\n", rootDir, addr)
+	userSetPort := false
+	for _, a := range os.Args[1:] {
+		if a == "-p" {
+			userSetPort = true
+			break
+		}
+	}
+
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil && !userSetPort {
+		for try := port + 1; try < port+20; try++ {
+			ln, err = net.Listen("tcp", fmt.Sprintf(":%d", try))
+			if err == nil {
+				port = try
+				break
+			}
+		}
+	}
+	if err != nil {
+		log.Fatalf("port %d is in use", port)
+	}
+
+	fmt.Printf("viewllm serving %s on http://localhost:%d\n", rootDir, port)
 
 	var tunnelCmd *exec.Cmd
 	if tunnel {
 		go func() {
-			log.Fatal(http.ListenAndServe(addr, nil))
+			log.Fatal(http.Serve(ln, nil))
 		}()
 		tunnelCmd = startTunnel(port)
 
@@ -547,6 +568,6 @@ func main() {
 			tunnelCmd.Process.Kill()
 		}
 	} else {
-		log.Fatal(http.ListenAndServe(addr, nil))
+		log.Fatal(http.Serve(ln, nil))
 	}
 }

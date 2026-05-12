@@ -5,7 +5,7 @@
 One command. Zero config. Works everywhere.
 
 ```bash
-npx viewllm ./reports
+npx viewllm@latest ./reports
 ```
 
 <p align="center">
@@ -54,7 +54,7 @@ But viewing these reports is still painful:
 ### npx (recommended — zero install)
 
 ```bash
-npx viewllm ./path/to/html/reports
+npx viewllm@latest ./path/to/html/reports
 ```
 
 ### Download binary
@@ -80,8 +80,10 @@ go build -o viewllm .
 ## Usage
 
 ```
-viewllm <directory> [-p port] [-exclude dir]... [-tunnel]
+viewllm [directory] [-p port] [-exclude dir]... [-tunnel]
 ```
+
+If no directory is given, viewllm serves the current working directory.
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -134,7 +136,7 @@ viewllm ./reports -p 8095 -tunnel
 Or with npx:
 
 ```bash
-npx viewllm ./reports -p 8095 -tunnel
+npx viewllm@latest ./reports -p 8095 -tunnel
 ```
 
 This prints a URL like `https://random-words.trycloudflare.com` that anyone can open — on their phone, laptop, or share with teammates.
