@@ -433,6 +433,17 @@ body {
 
 .section-header .sidebar-section-title {
   margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.recent-collapsible {
+  display: none;
+}
+
+.recent-collapsible.open {
+  display: block;
 }
 
 .mark-all-read {
@@ -492,6 +503,84 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.sidebar-search {
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+.search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--border);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 10px 6px 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+}
+
+.search-input::placeholder {
+  color: transparent;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  display: none;
+}
+
+.search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.search-results {
+  padding: 12px;
+}
+
+.search-results-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.search-empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .sidebar-section {
@@ -866,17 +955,30 @@ body {
 
   <div class="content">
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-section" id="recent-section">
-        <div class="section-header">
-          <div class="sidebar-section-title">Recent</div>
-          <button class="mark-all-read" onclick="markAllAsRead()" title="Mark all as read">Mark all read</button>
+      <div class="sidebar-search">
+        <div class="search-input-wrap">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          <input type="text" class="search-input" id="search-input" oninput="onSearch(this.value)">
+          <button class="search-clear" id="search-clear" onclick="clearSearch()">&times;</button>
         </div>
-        <div id="recent-list"></div>
       </div>
-      <div class="divider"></div>
-      <div class="sidebar-section" id="tree-section">
-        <div class="sidebar-section-title">Folders</div>
-        <div id="tree-list"></div>
+      <div id="search-results" class="search-results" style="display:none">
+        <div class="search-results-title">Results</div>
+        <div id="search-results-list"></div>
+      </div>
+      <div id="default-view">
+        <div class="sidebar-section" id="recent-section">
+          <div class="section-header" onclick="toggleRecentCollapse()" style="cursor:pointer">
+            <div class="sidebar-section-title"><span class="folder-arrow" id="recent-arrow">&#9654;</span> Recent</div>
+            <button class="mark-all-read" onclick="event.stopPropagation();markAllAsRead()" title="Mark all as read">Mark all read</button>
+          </div>
+          <div id="recent-list" class="recent-collapsible"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="sidebar-section" id="tree-section">
+          <div class="sidebar-section-title">Folders</div>
+          <div id="tree-list"></div>
+        </div>
       </div>
     </aside>
 
@@ -931,6 +1033,8 @@ const state = {
   mobileOpen: false,
   settingsOpen: false,
   allFiles: [],
+  previewMap: {},
+  openFolders: new Set(),
   textPreview: localStorage.getItem('viewllm-textPreview') !== 'false',
   thumbPreview: localStorage.getItem('viewllm-thumbPreview') !== 'false',
   recentCount: parseInt(localStorage.getItem('viewllm-recentCount')) || 5,
@@ -989,8 +1093,21 @@ function updateUnreadUI() {
   badge.textContent = total > 0 ? total : '';
 }
 
+function toggleRecentCollapse() {
+  const list = document.getElementById('recent-list');
+  const arrow = document.getElementById('recent-arrow');
+  const open = !list.classList.contains('open');
+  list.classList.toggle('open');
+  arrow.classList.toggle('open');
+  localStorage.setItem('viewllm-recentOpen', open);
+}
+
 function init() {
   setTheme(state.theme);
+  if (localStorage.getItem('viewllm-recentOpen') !== 'false') {
+    document.getElementById('recent-list').classList.add('open');
+    document.getElementById('recent-arrow').classList.add('open');
+  }
   loadFromHash();
   fetchRecent();
   fetchTree();
@@ -1199,6 +1316,7 @@ async function fetchRecent() {
   try {
     const res = await fetch('/api/recent?n=' + state.recentCount);
     const files = await res.json();
+    if (files) files.forEach(f => { if (f.preview) state.previewMap[f.path] = f.preview; });
     const key = files ? files.map(f => f.path + ':' + f.mtime).join('|') : '';
     if (key === lastRecentKey) return;
     lastRecentKey = key;
@@ -1226,34 +1344,39 @@ async function fetchTree() {
     const list = document.getElementById('tree-list');
     list.innerHTML = '';
     if (!tree || tree.length === 0) return;
-    tree.forEach(node => list.appendChild(renderNode(node)));
+    tree.forEach(node => list.appendChild(renderNode(node, '')));
   } catch (e) {}
 }
 
-function renderNode(node) {
+function renderNode(node, parentPath) {
   if (node.isFile) {
     return createFileItem({ path: node.path, name: node.name, mtime: node.mtime }, false);
   }
 
+  const folderPath = parentPath ? parentPath + '/' + node.name : node.name;
+  const isOpen = state.openFolders.has(folderPath);
   const container = document.createElement('div');
   const folderFiles = collectFiles(node.children || []);
   const unreadCount = countUnread(folderFiles);
 
   const folder = document.createElement('div');
   folder.className = 'folder-item';
-  folder.innerHTML = `<span class="folder-arrow">&#9654;</span> ${node.name}${unreadCount > 0 ? '<span class="folder-badge">' + unreadCount + '</span>' : ''}`;
+  folder.innerHTML = `<span class="folder-arrow${isOpen ? ' open' : ''}">&#9654;</span> ${node.name}${unreadCount > 0 ? '<span class="folder-badge">' + unreadCount + '</span>' : ''}`;
 
   const children = document.createElement('div');
-  children.className = 'folder-children';
+  children.className = 'folder-children' + (isOpen ? ' open' : '');
 
   if (node.children) {
-    node.children.forEach(child => children.appendChild(renderNode(child)));
+    node.children.forEach(child => children.appendChild(renderNode(child, folderPath)));
   }
 
   folder.onclick = () => {
     const arrow = folder.querySelector('.folder-arrow');
+    const opening = !children.classList.contains('open');
     arrow.classList.toggle('open');
     children.classList.toggle('open');
+    if (opening) state.openFolders.add(folderPath);
+    else state.openFolders.delete(folderPath);
   };
 
   container.appendChild(folder);
@@ -1304,6 +1427,71 @@ function refreshIframe() {
     }
   });
 })();
+
+function onSearch(query) {
+  const q = query.trim().toLowerCase();
+  const clearBtn = document.getElementById('search-clear');
+  const results = document.getElementById('search-results');
+  const defaultView = document.getElementById('default-view');
+
+  clearBtn.style.display = q ? 'block' : 'none';
+
+  if (!q) {
+    results.style.display = 'none';
+    defaultView.style.display = '';
+    return;
+  }
+
+  results.style.display = '';
+  defaultView.style.display = 'none';
+
+  const matches = state.allFiles.filter(f =>
+    f.path.toLowerCase().includes(q)
+  );
+
+  const list = document.getElementById('search-results-list');
+  list.innerHTML = '';
+
+  if (matches.length === 0) {
+    list.innerHTML = '<div class="search-empty">No files found</div>';
+    return;
+  }
+
+  matches.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'file-item' + (state.currentFile === f.path ? ' active' : '');
+    div.dataset.path = f.path;
+    div.onclick = () => { openFile(f.path); clearSearch(); };
+    const unread = isUnread(f.path, f.mtime);
+    const preview = state.previewMap[f.path];
+    const previewHtml = (state.textPreview && preview) ? `<div class="file-item-preview">${esc(preview)}</div>` : '';
+    const fileName = f.path.split('/').pop();
+    const dirPath = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '';
+    div.innerHTML = `
+      <div class="file-item-name-row">
+        <span class="file-item-name">${highlightMatch(fileName, q)}</span>
+        ${unread ? '<span class="unread-dot"></span>' : ''}
+      </div>
+      ${dirPath ? '<span class="file-item-meta">' + highlightMatch(dirPath, q) + '</span>' : ''}
+      <span class="file-item-meta">${relativeTime(f.mtime)}</span>
+      ${previewHtml}
+    `;
+    list.appendChild(div);
+  });
+}
+
+function highlightMatch(text, query) {
+  const idx = text.toLowerCase().indexOf(query);
+  if (idx === -1) return esc(text);
+  return esc(text.slice(0, idx)) + '<mark style="background:var(--accent);color:#fff;border-radius:2px;padding:0 2px">' + esc(text.slice(idx, idx + query.length)) + '</mark>' + esc(text.slice(idx + query.length));
+}
+
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  input.value = '';
+  onSearch('');
+  input.focus();
+}
 
 init();
 </script>
