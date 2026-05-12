@@ -475,7 +475,10 @@ func startTunnel(port int) *exec.Cmd {
 			if strings.Contains(line, "trycloudflare.com") || strings.Contains(line, "cfargotunnel.com") {
 				for _, word := range strings.Fields(line) {
 					if strings.HasPrefix(word, "https://") {
-						fmt.Printf("\n  Tunnel URL: %s\n\n", word)
+						fmt.Printf("\n  Share this link: %s\n\n", word)
+						fmt.Println("  Anyone with this link can view your reports.")
+						fmt.Println("  This link expires when you stop viewllm — a new one is created each time.")
+						fmt.Println("  Learn more: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/")
 						return
 					}
 				}
@@ -484,6 +487,51 @@ func startTunnel(port int) *exec.Cmd {
 	}()
 
 	return cmd
+}
+
+func isWSL() bool {
+	data, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+	lower := strings.ToLower(string(data))
+	return strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl")
+}
+
+func isSSH() bool {
+	return os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_CLIENT") != ""
+}
+
+func getLANIP() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := iface.Addrs()
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.To4() != nil && !ipnet.IP.IsLoopback() {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
+
+func printAccessHints(port int) {
+	lanIP := getLANIP()
+
+	fmt.Println()
+	if lanIP != "" {
+		fmt.Printf("  Open: http://%s:%d\n", lanIP, port)
+	} else {
+		fmt.Printf("  Open: http://localhost:%d\n", port)
+	}
+	fmt.Printf("  To share over the internet, use -tunnel\n")
+	fmt.Println()
 }
 
 func main() {
@@ -551,7 +599,12 @@ func main() {
 		log.Fatalf("port %d is in use", port)
 	}
 
-	fmt.Printf("viewllm serving %s on http://localhost:%d\n", rootDir, port)
+	if !tunnel {
+		fmt.Printf("viewllm serving %s\n", rootDir)
+		printAccessHints(port)
+	} else {
+		fmt.Printf("viewllm serving %s — starting tunnel (powered by Cloudflare)...\n", rootDir)
+	}
 
 	var tunnelCmd *exec.Cmd
 	if tunnel {
