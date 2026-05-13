@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"bufio"
@@ -24,6 +25,9 @@ import (
 //go:embed frontend/index.html
 var frontendFS embed.FS
 
+//go:embed frontend/marked.min.js
+var markedJS []byte
+
 type FileInfo struct {
 	Path    string `json:"path"`
 	Name    string `json:"name"`
@@ -33,7 +37,43 @@ type FileInfo struct {
 	Preview string `json:"preview,omitempty"`
 }
 
+func extractMarkdownPreview(path string, maxLen int) string {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	text := string(data)
+	lines := strings.SplitN(text, "\n", 30)
+	var preview strings.Builder
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "---") || strings.HasPrefix(trimmed, "===") || strings.HasPrefix(trimmed, "<") || strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "![") {
+			continue
+		}
+		if preview.Len() > 0 {
+			preview.WriteByte(' ')
+		}
+		preview.WriteString(trimmed)
+		if preview.Len() >= maxLen {
+			break
+		}
+	}
+	result := preview.String()
+	if len(result) > maxLen {
+		result = result[:maxLen]
+		if j := strings.LastIndex(result, " "); j > maxLen/2 {
+			result = result[:j]
+		}
+		result += "..."
+	}
+	return result
+}
+
 func extractPreview(path string, maxLen int) string {
+	if strings.HasSuffix(strings.ToLower(path), ".md") {
+		return extractMarkdownPreview(path, maxLen)
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -209,7 +249,8 @@ func (s *Server) scan() {
 			}
 			return nil
 		}
-		if !strings.HasSuffix(strings.ToLower(d.Name()), ".html") {
+		lower := strings.ToLower(d.Name())
+		if !strings.HasSuffix(lower, ".html") && !strings.HasSuffix(lower, ".md") {
 			return nil
 		}
 		info, err := d.Info()
@@ -349,12 +390,76 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.HasSuffix(strings.ToLower(absPath), ".html") {
-		http.Error(w, "only HTML files are served", http.StatusForbidden)
+	lowerPath := strings.ToLower(absPath)
+	allowed := false
+	for _, ext := range []string{".html", ".md", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"} {
+		if strings.HasSuffix(lowerPath, ext) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		http.Error(w, "file type not allowed", http.StatusForbidden)
+		return
+	}
+
+	if strings.HasSuffix(lowerPath, ".md") {
+		s.serveMarkdown(w, r, absPath)
 		return
 	}
 
 	http.ServeFile(w, r, absPath)
+}
+
+func (s *Server) serveMarkdown(w http.ResponseWriter, r *http.Request, path string) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	b64 := base64Encode(raw)
+	w.Write([]byte(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;max-width:980px;margin:0 auto;padding:32px 24px;color:#1f2328;line-height:1.6;font-size:16px}
+body.thumb{max-width:none;margin:0;padding:12px;background:#f6f8fa;font-size:18px}
+body.thumb h1{font-size:2.2em}
+body.thumb h2{font-size:1.8em}
+h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}
+h2{font-size:1.5em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}
+h3{font-size:1.25em}
+a{color:#0969da;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#eff1f3;padding:.2em .4em;border-radius:6px;font-size:85%}
+pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto;line-height:1.45}
+pre code{background:none;padding:0;font-size:85%}
+blockquote{margin:0;padding:0 1em;color:#656d76;border-left:.25em solid #d1d9e0}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 13px;border:1px solid #d1d9e0}
+th{background:#f6f8fa;font-weight:600}
+tr:nth-child(2n){background:#f6f8fa}
+img{max-width:100%}
+hr{height:.25em;padding:0;margin:24px 0;background:#d1d9e0;border:0}
+ul,ol{padding-left:2em}
+li+li{margin-top:.25em}
+.task-list-item{list-style:none}
+.task-list-item input{margin-right:.5em}
+</style>
+</head><body><div id="content"></div>
+<script>`))
+	w.Write(markedJS)
+	w.Write([]byte(`</script>
+<script>
+var b=atob('`))
+	w.Write([]byte(b64))
+	w.Write([]byte(`');var bytes=new Uint8Array(b.length);for(var i=0;i<b.length;i++)bytes[i]=b.charCodeAt(i);var text=new TextDecoder().decode(bytes);if(new URLSearchParams(location.search).has('thumb'))document.body.classList.add('thumb');document.getElementById('content').innerHTML=marked.parse(text);
+</script></body></html>`))
+}
+
+func base64Encode(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 func (s *Server) handleExcludes(w http.ResponseWriter, r *http.Request) {

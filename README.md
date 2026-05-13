@@ -59,8 +59,9 @@ Run it in any project folder. You instantly get:
 - **Instant sharing** — send anyone a link that opens a specific report. Add `-tunnel` and it works over the internet, no port forwarding needed.
 - **Collaboration built in** — everyone who opens the link gets their own unread tracking. Your team stays in sync without any setup.
 - **Search and browse** — file tree, search bar with live preview, thumbnails, text snippets. Find any report in seconds.
+- **HTML and Markdown** — renders both. Markdown gets GitHub-style formatting with tables, code blocks, and blockquotes.
 - **Works where nothing else does** — SSH, WSL, remote servers, headless environments. If you have a terminal, you have viewllm.
-- **Themes** — Light, Dark, and Solarized. Per-device settings for previews, recent count, and folder excludes.
+- **Themes** — Light, Dark, and Solarized. Per-device settings for file types, previews, recent count, and folder excludes.
 
 <details>
 <summary>Mobile view</summary>
@@ -151,7 +152,7 @@ viewllm serving ./reports — starting tunnel (powered by Cloudflare)...
 
 ## Works with every AI coding tool
 
-viewllm doesn't care who made the HTML. It works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything else that outputs `.html` files.
+viewllm doesn't care who made the file. It works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything else that outputs `.html` or `.md` files.
 
 ## Usage
 
@@ -172,6 +173,7 @@ Serves the current directory by default. Finds an open port automatically.
 
 Click the gear icon to access per-device settings:
 
+- **Show** — toggle HTML and Markdown files on/off
 - **Theme** — Light, Dark, Solarized
 - **Text preview** — show/hide text snippets
 - **Thumbnail preview** — show/hide live mini-renders
@@ -187,10 +189,10 @@ All settings stored in localStorage — each device has its own preferences.
 
 ```
 GET /              → Web UI
-GET /api/recent    → Recently modified HTML files (with previews)
+GET /api/recent    → Recently modified files (with previews)
 GET /api/tree      → Full directory tree as nested JSON
 GET /api/excludes  → Current exclude patterns
-GET /files/{path}  → Raw HTML file content
+GET /files/{path}  → Serves HTML directly, renders Markdown as styled HTML
 ```
 
 </details>
@@ -216,3 +218,4 @@ frontend/index.html  → Entire UI, embedded into the binary (~35KB)
 ## License
 
 MIT
+

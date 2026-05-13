@@ -1005,6 +1005,19 @@ body {
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">Show</div>
+      <label class="toggle-row">
+        <span>HTML</span>
+        <input type="checkbox" id="toggle-show-html" onchange="toggleFileType('showHtml', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+      <label class="toggle-row">
+        <span>Markdown</span>
+        <input type="checkbox" id="toggle-show-md" onchange="toggleFileType('showMd', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">Preview</div>
       <label class="toggle-row">
         <span>Text preview</span>
@@ -1036,7 +1049,7 @@ body {
       <div id="excludes-content"></div>
     </div>
     <div class="settings-footer">
-      viewllm v0.4.2 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.5.0 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1064,7 +1077,7 @@ body {
         </div>
         <div class="search-preview-text" id="sp-text"></div>
         <div class="search-preview-thumb" id="sp-thumb">
-          <iframe id="sp-iframe" sandbox="allow-same-origin" tabindex="-1"></iframe>
+          <iframe id="sp-iframe" sandbox="allow-same-origin allow-scripts" tabindex="-1"></iframe>
         </div>
       </div>
       <div id="default-view">
@@ -1139,6 +1152,8 @@ const state = {
   textPreview: localStorage.getItem('viewllm-textPreview') !== 'false',
   thumbPreview: localStorage.getItem('viewllm-thumbPreview') !== 'false',
   recentCount: parseInt(localStorage.getItem('viewllm-recentCount')) || 5,
+  showHtml: localStorage.getItem('viewllm-showHtml') !== 'false',
+  showMd: localStorage.getItem('viewllm-showMd') !== 'false',
 };
 
 function getReadMap() {
@@ -1240,10 +1255,28 @@ function setRecentCount(val) {
   fetchRecent();
 }
 
+function toggleFileType(key, value) {
+  state[key] = value;
+  localStorage.setItem('viewllm-' + key, value);
+  lastRecentKey = '';
+  lastTreeKey = '';
+  fetchRecent();
+  fetchTree();
+}
+
+function fileTypeVisible(path) {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.html') && !state.showHtml) return false;
+  if (lower.endsWith('.md') && !state.showMd) return false;
+  return true;
+}
+
 function syncPreviewToggles() {
   document.getElementById('toggle-text-preview').checked = state.textPreview;
   document.getElementById('toggle-thumb-preview').checked = state.thumbPreview;
   document.getElementById('recent-count-select').value = state.recentCount;
+  document.getElementById('toggle-show-html').checked = state.showHtml;
+  document.getElementById('toggle-show-md').checked = state.showMd;
 }
 
 function toggleSettings() {
@@ -1388,7 +1421,9 @@ function createFileItem(file, showThumb) {
   div.onclick = () => openFile(file.path);
   const unread = isUnread(file.path, file.mtime);
   const previewHtml = (state.textPreview && file.preview) ? `<div class="file-item-preview">${file.preview}</div>` : '';
-  const thumbHtml = (showThumb && state.thumbPreview) ? `<div class="file-item-thumb"><iframe src="/files/${file.path}" loading="lazy" sandbox="allow-same-origin" tabindex="-1"></iframe></div>` : '';
+  const isMd = file.path.toLowerCase().endsWith('.md');
+  const thumbSrc = isMd ? `/files/${file.path}?thumb=1` : `/files/${file.path}`;
+  const thumbHtml = (showThumb && state.thumbPreview) ? `<div class="file-item-thumb"><iframe src="${thumbSrc}" ${isMd ? '' : 'loading="lazy" sandbox="allow-same-origin"'} tabindex="-1"></iframe></div>` : '';
   div.innerHTML = `
     <div class="file-item-name-row">
       <span class="file-item-name" title="${file.path}">${file.name}</span>
@@ -1423,11 +1458,12 @@ async function fetchRecent() {
     lastRecentKey = key;
     const list = document.getElementById('recent-list');
     list.innerHTML = '';
-    if (!files || files.length === 0) {
-      list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No HTML files found</div>';
+    const filtered = files ? files.filter(f => fileTypeVisible(f.path)) : [];
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No files found</div>';
       return;
     }
-    files.forEach(f => list.appendChild(createFileItem(f, true)));
+    filtered.forEach(f => list.appendChild(createFileItem(f, true)));
   } catch (e) {}
 }
 
@@ -1451,6 +1487,7 @@ async function fetchTree() {
 
 function renderNode(node, parentPath) {
   if (node.isFile) {
+    if (!fileTypeVisible(node.path)) return document.createDocumentFragment();
     return createFileItem({ path: node.path, name: node.name, mtime: node.mtime }, false);
   }
 
@@ -1548,7 +1585,7 @@ function onSearch(query) {
   defaultView.style.display = 'none';
 
   const matches = state.allFiles.filter(f =>
-    f.path.toLowerCase().includes(q)
+    fileTypeVisible(f.path) && f.path.toLowerCase().includes(q)
   );
 
   const list = document.getElementById('search-results-list');
