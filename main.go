@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"bufio"
-	"net"
+	"io"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -615,16 +616,122 @@ func getLANIP() string {
 	return ""
 }
 
-func printAccessHints(port int) {
+func getPublicIP() string {
+	if isWSL() {
+		return ""
+	}
+
+	ch := make(chan string, 1)
+	send := func(ip string) {
+		select {
+		case ch <- ip:
+		default:
+		}
+	}
+
+	// AWS EC2 metadata (IMDSv1, then v2 fallback)
+	go func() {
+		client := &http.Client{Timeout: 150 * time.Millisecond}
+		resp, err := client.Get("http://169.254.169.254/latest/meta-data/public-ipv4")
+		if err != nil {
+			return
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == 200 {
+			if ip := strings.TrimSpace(string(body)); net.ParseIP(ip) != nil {
+				send(ip)
+				return
+			}
+		}
+		if resp.StatusCode == 401 {
+			tokenReq, _ := http.NewRequest("PUT", "http://169.254.169.254/latest/api/token", nil)
+			tokenReq.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "60")
+			tr, err := client.Do(tokenReq)
+			if err != nil {
+				return
+			}
+			token, _ := io.ReadAll(tr.Body)
+			tr.Body.Close()
+			if tr.StatusCode != 200 {
+				return
+			}
+			req, _ := http.NewRequest("GET", "http://169.254.169.254/latest/meta-data/public-ipv4", nil)
+			req.Header.Set("X-aws-ec2-metadata-token", strings.TrimSpace(string(token)))
+			r2, err := client.Do(req)
+			if err != nil {
+				return
+			}
+			b2, _ := io.ReadAll(r2.Body)
+			r2.Body.Close()
+			if r2.StatusCode == 200 {
+				if ip := strings.TrimSpace(string(b2)); net.ParseIP(ip) != nil {
+					send(ip)
+				}
+			}
+		}
+	}()
+
+	// GCP metadata
+	go func() {
+		client := &http.Client{Timeout: 150 * time.Millisecond}
+		req, _ := http.NewRequest("GET", "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip", nil)
+		req.Header.Set("Metadata-Flavor", "Google")
+		resp, err := client.Do(req)
+		if err != nil {
+			return
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == 200 {
+			if ip := strings.TrimSpace(string(body)); net.ParseIP(ip) != nil {
+				send(ip)
+			}
+		}
+	}()
+
+	// Azure IMDS
+	go func() {
+		client := &http.Client{Timeout: 150 * time.Millisecond}
+		req, _ := http.NewRequest("GET", "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text", nil)
+		req.Header.Set("Metadata", "true")
+		resp, err := client.Do(req)
+		if err != nil {
+			return
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == 200 {
+			if ip := strings.TrimSpace(string(body)); net.ParseIP(ip) != nil {
+				send(ip)
+			}
+		}
+	}()
+
+	select {
+	case ip := <-ch:
+		return ip
+	case <-time.After(200 * time.Millisecond):
+		return ""
+	}
+}
+
+func printAccessHints(port int, publicIP string) {
 	lanIP := getLANIP()
 
 	fmt.Println()
-	if lanIP != "" {
+	if publicIP != "" {
+		fmt.Printf("  Share: http://%s:%d\n", publicIP, port)
+		if lanIP != "" && lanIP != publicIP {
+			fmt.Printf("  Local: http://%s:%d\n", lanIP, port)
+		}
+	} else if lanIP != "" {
 		fmt.Printf("  Open: http://%s:%d\n", lanIP, port)
+		fmt.Printf("  To share over the internet, use -tunnel\n")
 	} else {
 		fmt.Printf("  Open: http://localhost:%d\n", port)
+		fmt.Printf("  To share over the internet, use -tunnel\n")
 	}
-	fmt.Printf("  To share over the internet, use -tunnel\n")
 	fmt.Println()
 }
 
@@ -652,6 +759,10 @@ func main() {
 	if dir == "" {
 		dir = "."
 	}
+
+	// Start public IP detection early (runs concurrently with setup)
+	publicIPCh := make(chan string, 1)
+	go func() { publicIPCh <- getPublicIP() }()
 
 	rootDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -698,9 +809,11 @@ func main() {
 		log.Fatalf("port %d is in use", port)
 	}
 
+	publicIP := <-publicIPCh
+
 	if !tunnel {
 		fmt.Printf("viewllm serving %s\n", rootDir)
-		printAccessHints(port)
+		printAccessHints(port, publicIP)
 	} else {
 		fmt.Printf("viewllm serving %s — starting tunnel (powered by Cloudflare)...\n", rootDir)
 	}

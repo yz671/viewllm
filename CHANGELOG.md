@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.2 (2026-05-13)
+
+- **Public IP detection** — on cloud VMs (AWS, GCP, Azure), detects and displays the public IP as a shareable link instead of suggesting `-tunnel`
+- **Zero delay on non-cloud** — skips detection on WSL; instant failure on machines without cloud metadata
+
 ## v0.5.0 (2026-05-13)
 
 - **Markdown rendering** — `.md` files now render with GitHub-style CSS (tables, code blocks, blockquotes, heading borders)
