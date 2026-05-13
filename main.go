@@ -37,16 +37,28 @@ type FileInfo struct {
 	Preview string `json:"preview,omitempty"`
 }
 
+func truncateAtWord(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+	text = text[:maxLen]
+	if j := strings.LastIndex(text, " "); j > maxLen/2 {
+		text = text[:j]
+	}
+	return text + "..."
+}
+
 func extractMarkdownPreview(path string, maxLen int) string {
-	data, err := os.ReadFile(path)
-	if err != nil || len(data) == 0 {
+	f, err := os.Open(path)
+	if err != nil {
 		return ""
 	}
-	text := string(data)
-	lines := strings.SplitN(text, "\n", 30)
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
 	var preview strings.Builder
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
+	for i := 0; i < 30 && scanner.Scan(); i++ {
+		trimmed := strings.TrimSpace(scanner.Text())
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "---") || strings.HasPrefix(trimmed, "===") || strings.HasPrefix(trimmed, "<") || strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "![") {
 			continue
 		}
@@ -58,15 +70,7 @@ func extractMarkdownPreview(path string, maxLen int) string {
 			break
 		}
 	}
-	result := preview.String()
-	if len(result) > maxLen {
-		result = result[:maxLen]
-		if j := strings.LastIndex(result, " "); j > maxLen/2 {
-			result = result[:j]
-		}
-		result += "..."
-	}
-	return result
+	return truncateAtWord(strings.TrimSpace(preview.String()), maxLen)
 }
 
 func extractPreview(path string, maxLen int) string {
@@ -166,15 +170,7 @@ func extractPreview(path string, maxLen int) string {
 		i++
 	}
 
-	text := strings.TrimSpace(b.String())
-	if len(text) > maxLen {
-		text = text[:maxLen]
-		if j := strings.LastIndex(text, " "); j > maxLen/2 {
-			text = text[:j]
-		}
-		text += "..."
-	}
-	return text
+	return truncateAtWord(strings.TrimSpace(b.String()), maxLen)
 }
 
 type TreeNode struct {
@@ -419,7 +415,6 @@ func (s *Server) serveMarkdown(w http.ResponseWriter, r *http.Request, path stri
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	b64 := base64Encode(raw)
 	w.Write([]byte(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -448,18 +443,12 @@ li+li{margin-top:.25em}
 .task-list-item input{margin-right:.5em}
 </style>
 </head><body><div id="content"></div>
-<script>`))
-	w.Write(markedJS)
-	w.Write([]byte(`</script>
+<script src="/static/marked.min.js"></script>
 <script>
 var b=atob('`))
-	w.Write([]byte(b64))
+	w.Write([]byte(base64.StdEncoding.EncodeToString(raw)))
 	w.Write([]byte(`');var bytes=new Uint8Array(b.length);for(var i=0;i<b.length;i++)bytes[i]=b.charCodeAt(i);var text=new TextDecoder().decode(bytes);if(new URLSearchParams(location.search).has('thumb'))document.body.classList.add('thumb');document.getElementById('content').innerHTML=marked.parse(text);
 </script></body></html>`))
-}
-
-func base64Encode(data []byte) string {
-	return base64.StdEncoding.EncodeToString(data)
 }
 
 func (s *Server) handleExcludes(w http.ResponseWriter, r *http.Request) {
@@ -681,6 +670,11 @@ func main() {
 	http.HandleFunc("/api/tree", srv.handleTree)
 	http.HandleFunc("/api/excludes", srv.handleExcludes)
 	http.HandleFunc("/files/", srv.handleFiles)
+	http.HandleFunc("/static/marked.min.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.Write(markedJS)
+	})
 
 	userSetPort := false
 	for _, a := range os.Args[1:] {

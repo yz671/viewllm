@@ -1156,12 +1156,21 @@ const state = {
   showMd: localStorage.getItem('viewllm-showMd') !== 'false',
 };
 
+let _readMapCache = null;
+
 function getReadMap() {
-  try { return JSON.parse(localStorage.getItem('viewllm-read') || '{}'); } catch { return {}; }
+  if (_readMapCache) return _readMapCache;
+  try { _readMapCache = JSON.parse(localStorage.getItem('viewllm-read') || '{}'); } catch { _readMapCache = {}; }
+  return _readMapCache;
 }
 
 function saveReadMap(map) {
+  _readMapCache = map;
   localStorage.setItem('viewllm-read', JSON.stringify(map));
+}
+
+function invalidateReadMapCache() {
+  _readMapCache = null;
 }
 
 function isUnread(path, mtime) {
@@ -1256,11 +1265,8 @@ function setRecentCount(val) {
 }
 
 function toggleFileType(key, value) {
-  state[key] = value;
-  localStorage.setItem('viewllm-' + key, value);
-  lastRecentKey = '';
+  togglePreviewSetting(key, value);
   lastTreeKey = '';
-  fetchRecent();
   fetchTree();
 }
 
@@ -1439,6 +1445,7 @@ function createFileItem(file, showThumb) {
 let lastRecentKey = '';
 
 async function fetchRecent() {
+  invalidateReadMapCache();
   const section = document.getElementById('recent-section');
   const divider = section.nextElementSibling;
   if (state.recentCount === 0) {
@@ -1474,6 +1481,10 @@ async function fetchTree() {
     const res = await fetch('/api/tree');
     const tree = await res.json();
     state.allFiles = collectFiles(tree);
+    const activePaths = new Set(state.allFiles.map(f => f.path));
+    for (const k of Object.keys(state.previewMap)) {
+      if (!activePaths.has(k)) delete state.previewMap[k];
+    }
     updateUnreadUI();
     const key = state.allFiles.map(f => f.path + ':' + f.mtime).join('|');
     if (key === lastTreeKey) return;
