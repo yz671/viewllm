@@ -186,6 +186,9 @@ var defaultExcludes = []string{
 	"venv", ".venv", "node_modules", ".git", "__pycache__",
 	".tox", ".mypy_cache", ".pytest_cache", ".eggs", "dist",
 	"build", ".next", ".nuxt", ".cache",
+	".claude", ".codex", ".aider", ".cursor",
+	".vscode-server", ".idea",
+	"target", "vendor", "coverage",
 }
 
 type previewCache struct {
@@ -194,13 +197,12 @@ type previewCache struct {
 }
 
 type Server struct {
-	rootDir      string
-	mu           sync.RWMutex
-	files        []FileInfo
-	previewMu    sync.Mutex
-	previews     map[string]previewCache
-	cliExcludes  []string
-	userExcludes []string
+	rootDir     string
+	mu          sync.RWMutex
+	files       []FileInfo
+	previewMu   sync.Mutex
+	previews    map[string]previewCache
+	cliExcludes []string
 }
 
 func NewServer(rootDir string, cliExcludes []string) *Server {
@@ -211,11 +213,6 @@ func NewServer(rootDir string, cliExcludes []string) *Server {
 }
 
 func (s *Server) isExcluded(name string) bool {
-	s.mu.RLock()
-	userExcludes := make([]string, len(s.userExcludes))
-	copy(userExcludes, s.userExcludes)
-	s.mu.RUnlock()
-
 	for _, pat := range defaultExcludes {
 		if strings.EqualFold(name, pat) {
 			return true
@@ -226,9 +223,37 @@ func (s *Server) isExcluded(name string) bool {
 			return true
 		}
 	}
-	for _, pat := range userExcludes {
-		if strings.EqualFold(name, pat) {
-			return true
+	return false
+}
+
+func parseClientExcludes(r *http.Request) []string {
+	raw := r.URL.Query().Get("excludes")
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	for _, s := range strings.Split(raw, ",") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func matchesClientExclude(filePath string, excludes []string) bool {
+	if len(excludes) == 0 {
+		return false
+	}
+	dir := filepath.Dir(filePath)
+	if dir == "." {
+		return false
+	}
+	for _, part := range strings.Split(dir, string(filepath.Separator)) {
+		for _, ex := range excludes {
+			if strings.EqualFold(part, ex) {
+				return true
+			}
 		}
 	}
 	return false
@@ -297,9 +322,15 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 	if v, err := strconv.Atoi(r.URL.Query().Get("n")); err == nil && v > 0 && v <= 50 {
 		n = v
 	}
+	clientExcludes := parseClientExcludes(r)
+
 	s.mu.RLock()
-	files := make([]FileInfo, len(s.files))
-	copy(files, s.files)
+	files := make([]FileInfo, 0, len(s.files))
+	for _, f := range s.files {
+		if !matchesClientExclude(f.Path, clientExcludes) {
+			files = append(files, f)
+		}
+	}
 	s.mu.RUnlock()
 
 	sort.Slice(files, func(i, j int) bool {
@@ -328,9 +359,15 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTree(w http.ResponseWriter, r *http.Request) {
+	clientExcludes := parseClientExcludes(r)
+
 	s.mu.RLock()
-	files := make([]FileInfo, len(s.files))
-	copy(files, s.files)
+	files := make([]FileInfo, 0, len(s.files))
+	for _, f := range s.files {
+		if !matchesClientExclude(f.Path, clientExcludes) {
+			files = append(files, f)
+		}
+	}
 	s.mu.RUnlock()
 
 	root := &TreeNode{Name: "root", Children: []*TreeNode{}}
@@ -453,71 +490,16 @@ var b=atob('`))
 }
 
 func (s *Server) handleExcludes(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.mu.RLock()
-		userExcludes := make([]string, len(s.userExcludes))
-		copy(userExcludes, s.userExcludes)
-		s.mu.RUnlock()
-
-		resp := map[string][]string{
-			"defaults": defaultExcludes,
-			"cli":      s.cliExcludes,
-			"user":     userExcludes,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-
-	case http.MethodPost:
-		var req struct {
-			Action  string `json:"action"`
-			Pattern string `json:"pattern"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		req.Pattern = strings.TrimSpace(req.Pattern)
-		if req.Pattern == "" {
-			http.Error(w, "pattern required", http.StatusBadRequest)
-			return
-		}
-
-		s.mu.Lock()
-		switch req.Action {
-		case "add":
-			for _, p := range s.userExcludes {
-				if strings.EqualFold(p, req.Pattern) {
-					s.mu.Unlock()
-					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(map[string]string{"status": "exists"})
-					return
-				}
-			}
-			s.userExcludes = append(s.userExcludes, req.Pattern)
-		case "remove":
-			filtered := s.userExcludes[:0]
-			for _, p := range s.userExcludes {
-				if !strings.EqualFold(p, req.Pattern) {
-					filtered = append(filtered, p)
-				}
-			}
-			s.userExcludes = filtered
-		default:
-			s.mu.Unlock()
-			http.Error(w, "action must be add or remove", http.StatusBadRequest)
-			return
-		}
-		s.mu.Unlock()
-
-		s.scan()
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-
-	default:
+	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+	resp := map[string][]string{
+		"defaults": defaultExcludes,
+		"cli":      s.cliExcludes,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {

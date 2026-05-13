@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.3 (2026-05-13)
+
+- **Client-side custom excludes** — custom folder excludes now stored in localStorage per-user, sent with each request; server stays stateless (no trace on disk)
+- **Expanded default excludes** — added `.claude`, `.codex`, `.aider`, `.cursor`, `.vscode-server`, `.idea`, `target`, `vendor`, `coverage`
+- **Exclude help tooltip** — `?` icon next to "Ignored Folders" explains exact-match behavior with examples
+
 ## v0.5.2 (2026-05-13)
 
 - **Public IP detection** — on cloud VMs (AWS, GCP, Azure), detects and displays the public IP as a shareable link instead of suggesting `-tunnel`

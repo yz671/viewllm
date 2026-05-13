@@ -200,6 +200,41 @@ body {
   flex-shrink: 0;
 }
 
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: help;
+  position: relative;
+  flex-shrink: 0;
+}
+.help-icon:hover { border-color: var(--text-primary); color: var(--text-primary); }
+.help-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: -8px;
+  width: 220px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  z-index: 100;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.help-icon:hover .help-tooltip { display: block; }
+
 .exclude-list {
   display: flex;
   flex-direction: column;
@@ -1045,11 +1080,11 @@ body {
       </label>
     </div>
     <div class="settings-section">
-      <div class="settings-section-title">Ignored Folders</div>
+      <div class="settings-section-title" style="display:flex;align-items:center;gap:6px">Ignored Folders<span class="help-icon">?<div class="help-tooltip">Exact folder name match, case-insensitive.<br><br><strong>Examples:</strong><br>logs<br>temp<br>.hidden</div></span></div>
       <div id="excludes-content"></div>
     </div>
     <div class="settings-footer">
-      viewllm v0.5.2 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.5.3 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1154,6 +1189,7 @@ const state = {
   recentCount: parseInt(localStorage.getItem('viewllm-recentCount')) || 5,
   showHtml: localStorage.getItem('viewllm-showHtml') !== 'false',
   showMd: localStorage.getItem('viewllm-showMd') !== 'false',
+  customExcludes: JSON.parse(localStorage.getItem('viewllm-excludes') || '[]'),
 };
 
 let _readMapCache = null;
@@ -1325,9 +1361,9 @@ function renderExcludes(data) {
     html += '</div></div>';
   }
 
-  if (data.user && data.user.length) {
+  if (state.customExcludes.length) {
     html += '<div class="exclude-group-label">Custom</div><div class="exclude-list">';
-    data.user.forEach(p => {
+    state.customExcludes.forEach(p => {
       html += `<div class="exclude-item"><span>${esc(p)}</span><button class="exclude-remove" onclick="removeExclude('${esc(p)}')" title="Remove">&times;</button></div>`;
     });
     html += '</div>';
@@ -1341,28 +1377,34 @@ function renderExcludes(data) {
   container.innerHTML = html;
 }
 
-async function addExclude() {
+function saveExcludes() {
+  localStorage.setItem('viewllm-excludes', JSON.stringify(state.customExcludes));
+}
+
+function addExclude() {
   const input = document.getElementById('exclude-input');
   const pattern = input.value.trim();
   if (!pattern) return;
-  await fetch('/api/excludes', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({action: 'add', pattern})
-  });
+  if (state.customExcludes.some(p => p.toLowerCase() === pattern.toLowerCase())) {
+    input.value = '';
+    return;
+  }
+  state.customExcludes.push(pattern);
+  saveExcludes();
   input.value = '';
   fetchExcludes();
+  lastRecentKey = '';
+  lastTreeKey = '';
   fetchRecent();
   fetchTree();
 }
 
-async function removeExclude(pattern) {
-  await fetch('/api/excludes', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({action: 'remove', pattern})
-  });
+function removeExclude(pattern) {
+  state.customExcludes = state.customExcludes.filter(p => p.toLowerCase() !== pattern.toLowerCase());
+  saveExcludes();
   fetchExcludes();
+  lastRecentKey = '';
+  lastTreeKey = '';
   fetchRecent();
   fetchTree();
 }
@@ -1444,6 +1486,11 @@ function createFileItem(file, showThumb) {
 
 let lastRecentKey = '';
 
+function excludesParam() {
+  if (!state.customExcludes.length) return '';
+  return '&excludes=' + encodeURIComponent(state.customExcludes.join(','));
+}
+
 async function fetchRecent() {
   invalidateReadMapCache();
   const section = document.getElementById('recent-section');
@@ -1457,7 +1504,7 @@ async function fetchRecent() {
   section.style.display = '';
   if (divider) divider.style.display = '';
   try {
-    const res = await fetch('/api/recent?n=' + state.recentCount);
+    const res = await fetch('/api/recent?n=' + state.recentCount + excludesParam());
     const files = await res.json();
     if (files) files.forEach(f => { if (f.preview) state.previewMap[f.path] = f.preview; });
     const key = files ? files.map(f => f.path + ':' + f.mtime).join('|') : '';
@@ -1478,7 +1525,8 @@ let lastTreeKey = '';
 
 async function fetchTree() {
   try {
-    const res = await fetch('/api/tree');
+    const ep = state.customExcludes.length ? '?excludes=' + encodeURIComponent(state.customExcludes.join(',')) : '';
+    const res = await fetch('/api/tree' + ep);
     const tree = await res.json();
     state.allFiles = collectFiles(tree);
     const activePaths = new Set(state.allFiles.map(f => f.path));

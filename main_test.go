@@ -214,9 +214,8 @@ Bar</p></body>`
 
 func TestIsExcluded(t *testing.T) {
 	s := &Server{
-		cliExcludes:  []string{"logs"},
-		userExcludes: []string{"tmp"},
-		previews:     make(map[string]previewCache),
+		cliExcludes: []string{"logs"},
+		previews:    make(map[string]previewCache),
 	}
 
 	tests := []struct {
@@ -230,8 +229,6 @@ func TestIsExcluded(t *testing.T) {
 		{"case insensitive default", "Node_Modules", true},
 		{"cli exclude", "logs", true},
 		{"cli exclude case", "LOGS", true},
-		{"user exclude", "tmp", true},
-		{"user exclude case", "TMP", true},
 		{"not excluded", "src", false},
 		{"not excluded similar", "node_module", false},
 		{"empty name", "", false},
@@ -241,6 +238,53 @@ func TestIsExcluded(t *testing.T) {
 			got := s.isExcluded(tt.dir)
 			if got != tt.want {
 				t.Errorf("isExcluded(%q) = %v, want %v", tt.dir, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseClientExcludes(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  int
+	}{
+		{"empty", "", 0},
+		{"single", "?excludes=logs", 1},
+		{"multiple", "?excludes=logs,tmp,data", 3},
+		{"with spaces", "?excludes=logs%2C%20tmp", 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/api/tree"+tt.query, nil)
+			got := parseClientExcludes(req)
+			if len(got) != tt.want {
+				t.Errorf("parseClientExcludes() returned %d items, want %d", len(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestMatchesClientExclude(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		excludes []string
+		want     bool
+	}{
+		{"no excludes", "a/b/file.html", nil, false},
+		{"match dir", "logs/file.html", []string{"logs"}, true},
+		{"match nested", "a/logs/file.html", []string{"logs"}, true},
+		{"case insensitive", "a/LOGS/file.html", []string{"logs"}, true},
+		{"no match", "a/b/file.html", []string{"logs"}, false},
+		{"root file", "file.html", []string{"logs"}, false},
+		{"partial no match", "a/xxlogsxx/file.html", []string{"logs"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesClientExclude(tt.path, tt.excludes)
+			if got != tt.want {
+				t.Errorf("matchesClientExclude(%q, %v) = %v, want %v", tt.path, tt.excludes, got, tt.want)
 			}
 		})
 	}
@@ -551,7 +595,7 @@ func TestHandleExcludes(t *testing.T) {
 		previews:    make(map[string]previewCache),
 	}
 
-	t.Run("GET returns all lists", func(t *testing.T) {
+	t.Run("GET returns defaults and cli", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/excludes", nil)
 		w := httptest.NewRecorder()
 		s.handleExcludes(w, req)
@@ -567,114 +611,13 @@ func TestHandleExcludes(t *testing.T) {
 		}
 	})
 
-	t.Run("POST add", func(t *testing.T) {
-		body := strings.NewReader(`{"action":"add","pattern":"custom_dir"}`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		req.Header.Set("Content-Type", "application/json")
+	t.Run("POST not allowed", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/api/excludes", nil)
 		w := httptest.NewRecorder()
 		s.handleExcludes(w, req)
 
-		var resp map[string]string
-		json.NewDecoder(w.Body).Decode(&resp)
-		if resp["status"] != "ok" {
-			t.Errorf("expected ok, got %v", resp)
-		}
-
-		s.mu.RLock()
-		found := false
-		for _, p := range s.userExcludes {
-			if p == "custom_dir" {
-				found = true
-			}
-		}
-		s.mu.RUnlock()
-		if !found {
-			t.Error("custom_dir should be in userExcludes")
-		}
-	})
-
-	t.Run("POST add duplicate", func(t *testing.T) {
-		body := strings.NewReader(`{"action":"add","pattern":"custom_dir"}`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		s.handleExcludes(w, req)
-
-		var resp map[string]string
-		json.NewDecoder(w.Body).Decode(&resp)
-		if resp["status"] != "exists" {
-			t.Errorf("expected exists for duplicate, got %v", resp)
-		}
-	})
-
-	t.Run("POST add case insensitive duplicate", func(t *testing.T) {
-		body := strings.NewReader(`{"action":"add","pattern":"CUSTOM_DIR"}`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		s.handleExcludes(w, req)
-
-		var resp map[string]string
-		json.NewDecoder(w.Body).Decode(&resp)
-		if resp["status"] != "exists" {
-			t.Errorf("expected exists for case-insensitive duplicate, got %v", resp)
-		}
-	})
-
-	t.Run("POST remove", func(t *testing.T) {
-		body := strings.NewReader(`{"action":"remove","pattern":"custom_dir"}`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		s.handleExcludes(w, req)
-
-		var resp map[string]string
-		json.NewDecoder(w.Body).Decode(&resp)
-		if resp["status"] != "ok" {
-			t.Errorf("expected ok, got %v", resp)
-		}
-
-		s.mu.RLock()
-		for _, p := range s.userExcludes {
-			if strings.EqualFold(p, "custom_dir") {
-				t.Error("custom_dir should be removed")
-			}
-		}
-		s.mu.RUnlock()
-	})
-
-	t.Run("POST empty pattern", func(t *testing.T) {
-		body := strings.NewReader(`{"action":"add","pattern":"  "}`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		s.handleExcludes(w, req)
-
-		if w.Code != 400 {
-			t.Errorf("expected 400 for empty pattern, got %d", w.Code)
-		}
-	})
-
-	t.Run("POST invalid action", func(t *testing.T) {
-		body := strings.NewReader(`{"action":"delete","pattern":"x"}`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		s.handleExcludes(w, req)
-
-		if w.Code != 400 {
-			t.Errorf("expected 400 for invalid action, got %d", w.Code)
-		}
-	})
-
-	t.Run("POST invalid JSON", func(t *testing.T) {
-		body := strings.NewReader(`not json`)
-		req := httptest.NewRequest("POST", "/api/excludes", body)
-		w := httptest.NewRecorder()
-		s.handleExcludes(w, req)
-
-		if w.Code != 400 {
-			t.Errorf("expected 400 for invalid JSON, got %d", w.Code)
+		if w.Code != 405 {
+			t.Errorf("expected 405 for POST, got %d", w.Code)
 		}
 	})
 
@@ -820,6 +763,9 @@ func TestDefaultExcludes(t *testing.T) {
 		"venv", ".venv", "node_modules", ".git", "__pycache__",
 		".tox", ".mypy_cache", ".pytest_cache", ".eggs", "dist",
 		"build", ".next", ".nuxt", ".cache",
+		".claude", ".codex", ".aider", ".cursor",
+		".vscode-server", ".idea",
+		"target", "vendor", "coverage",
 	}
 	if len(defaultExcludes) != len(expected) {
 		t.Errorf("defaultExcludes has %d entries, expected %d", len(defaultExcludes), len(expected))
