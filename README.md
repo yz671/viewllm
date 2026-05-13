@@ -5,7 +5,7 @@
 <h1 align="center">viewllm</h1>
 
 <p align="center">
-  <strong>AI agents write HTML now. This is how you view and share it.</strong>
+  <strong>View and share HTML/Markdown reports from AI coding agents.</strong>
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@ npx viewllm@latest
 </p>
 
 <p align="center">
-  <strong><a href="https://demo.viewllm.dev">See it live →</a></strong>
+  <strong><a href="https://demo.viewllm.dev">Live demo →</a></strong>
 </p>
 
 <p align="center">
@@ -37,31 +37,25 @@ npx viewllm@latest
 ---
 
 ## The problem
-> HTML reports are amazing. Viewing and sharing them shouldn't be this hard.
 
-Claude Code, Codex, and Cursor are generating rich HTML reports — data visualizations, research analyses, interactive charts. HTML is replacing Markdown as the default output for AI coding agents.
-
-But there's no good way to actually look at these files:
+Claude Code, Codex, and Cursor generate rich HTML reports — data visualizations, research analyses, interactive charts. But there's no good way to view or share them:
 
 - **VS Code Live Preview** breaks over SSH and WSL
 - **GitHub** won't render HTML — only Markdown
 - **`python -m http.server`** gives you a raw directory listing
 - **Sharing** means downloading files and emailing them around
 
-Code has VS Code. Markdown has GitHub. PDF has Preview. Jupyter has nbviewer. HTML reports from AI agents had nothing — until now.
-
 ## What viewllm does
-> One command. A beautiful viewer for everything your AI creates.
 
-Run it in any project folder. You instantly get:
+Run it in any project folder. You get:
 
-- **A real-time view of your AI's work** — new reports appear with blue dots as your agent produces them. You're reading one report while the next is being written.
-- **Instant sharing** — send anyone a link that opens a specific report. Add `-tunnel` and it works over the internet, no port forwarding needed.
-- **Collaboration built in** — everyone who opens the link gets their own unread tracking. Your team stays in sync without any setup.
-- **Search and browse** — file tree, search bar with live preview, thumbnails, text snippets. Find any report in seconds.
-- **HTML and Markdown** — renders both. Markdown gets GitHub-style formatting with tables, code blocks, and blockquotes.
-- **Works where nothing else does** — SSH, WSL, remote servers, headless environments. If you have a terminal, you have viewllm.
-- **Themes** — Light, Dark, and Solarized. Per-device settings for file types, previews, recent count, and folder excludes.
+- **Real-time file watching** — new and modified files appear with unread indicators as your agent produces them
+- **Sharing** — shareable links to specific reports. Add `-tunnel` for a public URL, no port forwarding needed
+- **Per-device unread tracking** — each person who opens the link gets their own read/unread state
+- **Search** — file tree, search bar with hover preview, thumbnails, text snippets
+- **HTML and Markdown** — renders both. Markdown gets GitHub-style formatting
+- **SSH, WSL, remote servers** — works anywhere you have a terminal
+- **Themes** — Light, Dark, Solarized
 
 <details>
 <summary>Mobile view</summary>
@@ -70,34 +64,29 @@ Run it in any project folder. You instantly get:
 </p>
 </details>
 
-## Ultralight and fast
-> 9MB binary. 7MB RAM. Starts in 100ms. Leaves no trace.
+## Lightweight
 
 | | |
 |---|---|
-| **Binary size** | 9MB |
-| **Memory usage** | ~7MB |
-| **Startup to first page** | ~100ms |
+| **Binary** | 9MB |
+| **Memory** | ~7MB |
+| **Startup** | ~100ms |
 | **API response** | <5ms |
 | **Dependencies** | 0 |
-| **Trace left on your system** | None |
 
-Not another Electron app — it's a single Go binary closer to a Unix utility. Read-only. No database, no config files, no background processes. Stop it and it's gone.
+Single Go binary. No database, no config files, no background processes. Read-only. Stop it and it's gone.
 
-## Try this right now
-> 30 seconds to see why people don't go back to Markdown.
+## Quick start
 
-If you're using an AI coding agent, paste this prompt:
+Ask your AI coding agent:
 
 > *"Write me an HTML report analyzing the architecture of this codebase. Include diagrams, dependency graphs, and your recommendations."*
 
-Then run:
+Then:
 
 ```bash
 npx viewllm@latest
 ```
-
-That's the workflow. Your AI builds rich, visual reports. viewllm lets you see and share them instantly. Once you try it, Markdown feels like reading a spreadsheet printout.
 
 ## Install
 
@@ -124,9 +113,8 @@ go build -o viewllm . && ./viewllm
 </details>
 
 ## Sharing
-> Your reports are only useful if others can see them.
 
-viewllm shows you a link on startup that works for you and anyone on your network:
+viewllm shows a shareable link on startup:
 
 ```
 viewllm serving ./reports
@@ -150,9 +138,9 @@ viewllm serving ./reports — starting tunnel (powered by Cloudflare)...
   This link expires when you stop viewllm — a new one is created each time.
 ```
 
-## Works with every AI coding tool
+## Works with any tool
 
-viewllm doesn't care who made the file. It works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything else that outputs `.html` or `.md` files.
+Works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything else that outputs `.html` or `.md` files.
 
 ## Usage
 
@@ -200,7 +188,7 @@ GET /files/{path}  → Serves HTML directly, renders Markdown as styled HTML
 <details>
 <summary>Technical details</summary>
 
-Single Go binary with the entire frontend embedded via `go:embed`. Scans for `.html` files, serves a web UI, polls for changes every 2 seconds.
+Single Go binary with the entire frontend embedded via `go:embed`. Scans for `.html` and `.md` files, serves a web UI, polls for changes every 2 seconds. Markdown rendered client-side with [marked.js](https://github.com/markedjs/marked).
 
 **Stack:** Go stdlib (zero deps) · Vanilla HTML/CSS/JS · `go:embed` · Polling-based file discovery
 
@@ -211,11 +199,10 @@ Single Go binary with the entire frontend embedded via `go:embed`. Scans for `.h
 The codebase is intentionally simple — two files:
 
 ```
-main.go              → Server, API, file scanning (~600 lines)
-frontend/index.html  → Entire UI, embedded into the binary (~35KB)
+main.go              → Server, API, file scanning (~650 lines)
+frontend/index.html  → Entire UI, embedded into the binary (~40KB)
 ```
 
 ## License
 
 MIT
-
