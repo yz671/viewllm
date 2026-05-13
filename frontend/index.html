@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,9 +22,9 @@
   --bg-sidebar: #16161e;
   --bg-hover: #24283b;
   --bg-active: #343b58;
-  --text: #c0caf5;
-  --text-muted: #565f89;
-  --border: #24283b;
+  --text: #c8d1e6;
+  --text-muted: #8790ab;
+  --border: #2f3452;
   --accent: #7aa2f7;
   --accent-hover: #89b4fa;
 }
@@ -34,9 +34,9 @@
   --bg-sidebar: #eee8d5;
   --bg-hover: #e4ddc8;
   --bg-active: #d6cfb8;
-  --text: #657b83;
-  --text-muted: #93a1a1;
-  --border: #eee8d5;
+  --text: #475b62;
+  --text-muted: #6d8086;
+  --border: #d5cdb7;
   --accent: #268bd2;
   --accent-hover: #2aa198;
 }
@@ -136,6 +136,7 @@ body {
   border-bottom: 1px solid var(--border);
   font-weight: 600;
   font-size: 15px;
+  color: var(--text);
 }
 
 .settings-close {
@@ -742,6 +743,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text);
 }
 
 .file-item-meta {
@@ -790,6 +792,7 @@ body {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1007,7 +1010,7 @@ body {
 </style>
 </head>
 <body>
-<div class="app" data-theme="light">
+<div class="app">
   <header class="header">
     <div class="header-left">
       <span class="logo">viewllm</span>
@@ -1084,7 +1087,7 @@ body {
       <div id="excludes-content"></div>
     </div>
     <div class="settings-footer">
-      viewllm v0.5.3 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.5.4 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1279,7 +1282,7 @@ function init() {
 
 function setTheme(theme) {
   state.theme = theme;
-  document.querySelector('.app').setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('viewllm-theme', theme);
   document.querySelectorAll('.theme-option').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === theme);

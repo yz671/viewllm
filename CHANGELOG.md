@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.4 (2026-05-13)
+
+- **Dark theme fix** — moved `data-theme` to `<html>` so all CSS variables cascade correctly; boosted text and border contrast
+- **Solarized theme fix** — darkened text and muted colors for better readability
+- **Author credit** — settings footer now shows "by yz671"
+
 ## v0.5.3 (2026-05-13)
 
 - **Client-side custom excludes** — custom folder excludes now stored in localStorage per-user, sent with each request; server stays stateless (no trace on disk)
