@@ -1545,6 +1545,14 @@ function createFileItem(file, showThumb) {
     ${previewHtml}
     ${thumbHtml}
   `;
+  div.addEventListener('mouseenter', () => {
+    clearTimeout(previewTimer);
+    showSearchPreview(file, div);
+  });
+  div.addEventListener('mouseleave', () => {
+    previewActive = false;
+    hideSearchPreview(true);
+  });
   return div;
 }
 
