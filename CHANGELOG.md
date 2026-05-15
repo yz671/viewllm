@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.7 (2026-05-15)
+
+- **File-level excludes** — ignore specific files (not just folders) by name. Default file excludes: `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.cursorignore`, `.aiderignore`, `.gitignore`, `.dockerignore`, `Thumbs.db`, `.DS_Store`
+- **`-exclude-file` CLI flag** — add custom file excludes from the command line (repeatable)
+- **Folder/file type selector in settings** — dropdown to choose between folder and file when adding custom excludes; icons distinguish the two types
+- **File path in header bar** — current file's directory and name displayed centered in the top bar, aligned over the content area
+- **Hover preview on all file items** — the large preview popup (previously search-only) now appears when hovering recent files and folder tree items
+
 ## v0.5.4 (2026-05-13)
 
 - **Dark theme fix** — moved `data-theme` to `<html>` so all CSS variables cascade correctly; boosted text and border contrast

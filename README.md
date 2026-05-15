@@ -52,7 +52,7 @@ Run it in any project folder. You get:
 - **Real-time file watching** — new and modified files appear with unread indicators as your agent produces them
 - **Sharing** — shareable links to specific reports. Add `-tunnel` for a public URL, no port forwarding needed
 - **Per-device unread tracking** — each person who opens the link gets their own read/unread state
-- **Search** — file tree, search bar with hover preview, thumbnails, text snippets
+- **Search** — file tree, search bar, hover preview popups on all file items, thumbnails, text snippets
 - **HTML and Markdown** — renders both. Markdown gets GitHub-style formatting
 - **SSH, WSL, remote servers** — works anywhere you have a terminal
 - **Themes** — Light, Dark, Solarized
@@ -145,7 +145,7 @@ Works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything els
 ## Usage
 
 ```
-viewllm [directory] [-p port] [-exclude dir]... [-tunnel]
+viewllm [directory] [-p port] [-exclude dir]... [-exclude-file name]... [-tunnel]
 ```
 
 Serves the current directory by default. Finds an open port automatically.
@@ -154,6 +154,7 @@ Serves the current directory by default. Finds an open port automatically.
 |------|---------|-------------|
 | `-p` | `8090` | Port to serve on |
 | `-exclude` | — | Additional directories to ignore (repeatable) |
+| `-exclude-file` | — | Additional files to ignore by name (repeatable) |
 | `-tunnel` | off | Create a public URL via Cloudflare Tunnel |
 
 <details>
@@ -166,7 +167,7 @@ Click the gear icon to access per-device settings:
 - **Text preview** — show/hide text snippets
 - **Thumbnail preview** — show/hide live mini-renders
 - **Recent files count** — 0 (off), 3, 5, 10, 15, or 20
-- **Ignored folders** — add/remove custom exclude patterns
+- **Ignored folders & files** — add/remove custom exclude patterns for both folders and files
 
 All settings stored in localStorage — each device has its own preferences.
 
