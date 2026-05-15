@@ -1083,7 +1083,7 @@ body {
       </label>
     </div>
     <div class="settings-section">
-      <div class="settings-section-title" style="display:flex;align-items:center;gap:6px">Ignored Folders<span class="help-icon">?<div class="help-tooltip">Exact folder name match, case-insensitive.<br><br><strong>Examples:</strong><br>logs<br>temp<br>.hidden</div></span></div>
+      <div class="settings-section-title" style="display:flex;align-items:center;gap:6px">Ignored Folders &amp; Files<span class="help-icon">?<div class="help-tooltip">Exact name match, case-insensitive. Use the dropdown to choose folder or file.<br><br><strong>Folder examples:</strong> logs, temp, .hidden<br><strong>File examples:</strong> CLAUDE.md, .cursorrules</div></span></div>
       <div id="excludes-content"></div>
     </div>
     <div class="settings-footer">
@@ -1159,7 +1159,7 @@ body {
             <span class="welcome-feature-icon">&#9881;</span>
             <div class="welcome-feature-text">
               <strong>Settings</strong>
-              <span>Theme, previews, recent count, and folder excludes</span>
+              <span>Theme, previews, recent count, and folder/file excludes</span>
             </div>
           </div>
           <div class="welcome-feature">
@@ -1193,6 +1193,7 @@ const state = {
   showHtml: localStorage.getItem('viewllm-showHtml') !== 'false',
   showMd: localStorage.getItem('viewllm-showMd') !== 'false',
   customExcludes: JSON.parse(localStorage.getItem('viewllm-excludes') || '[]'),
+  customFileExcludes: JSON.parse(localStorage.getItem('viewllm-file-excludes') || '[]'),
 };
 
 let _readMapCache = null;
@@ -1352,28 +1353,41 @@ function renderExcludes(data) {
   const container = document.getElementById('excludes-content');
   let html = '';
 
-  const builtIn = [...(data.defaults || []), ...(data.cli || [])];
-  if (builtIn.length) {
+  const builtInFolders = [...(data.defaults || []), ...(data.cli || [])];
+  const builtInFiles = [...(data.fileDefaults || []), ...(data.fileCli || [])];
+
+  if (builtInFolders.length || builtInFiles.length) {
+    const total = builtInFolders.length + builtInFiles.length;
     html += `<div class="exclude-collapsible" onclick="this.classList.toggle('open')">
-      <span class="folder-arrow">&#9654;</span> Built-in (${builtIn.length})
+      <span class="folder-arrow">&#9654;</span> Built-in (${total})
     </div>
     <div class="exclude-collapsible-body"><div class="exclude-list">`;
-    builtIn.forEach(p => {
-      html += `<div class="exclude-item exclude-item-default"><span>${esc(p)}</span></div>`;
+    builtInFolders.forEach(p => {
+      html += `<div class="exclude-item exclude-item-default"><span>&#128193; ${esc(p)}</span></div>`;
+    });
+    builtInFiles.forEach(p => {
+      html += `<div class="exclude-item exclude-item-default"><span>&#128196; ${esc(p)}</span></div>`;
     });
     html += '</div></div>';
   }
 
-  if (state.customExcludes.length) {
+  if (state.customExcludes.length || state.customFileExcludes.length) {
     html += '<div class="exclude-group-label">Custom</div><div class="exclude-list">';
     state.customExcludes.forEach(p => {
-      html += `<div class="exclude-item"><span>${esc(p)}</span><button class="exclude-remove" onclick="removeExclude('${esc(p)}')" title="Remove">&times;</button></div>`;
+      html += `<div class="exclude-item"><span>&#128193; ${esc(p)}</span><button class="exclude-remove" onclick="removeExclude('folder','${esc(p)}')" title="Remove">&times;</button></div>`;
+    });
+    state.customFileExcludes.forEach(p => {
+      html += `<div class="exclude-item"><span>&#128196; ${esc(p)}</span><button class="exclude-remove" onclick="removeExclude('file','${esc(p)}')" title="Remove">&times;</button></div>`;
     });
     html += '</div>';
   }
 
   html += `<div class="exclude-add">
-    <input type="text" id="exclude-input" placeholder="folder name" onkeydown="if(event.key==='Enter')addExclude()">
+    <select id="exclude-type" style="padding:4px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--fg);font-size:12px;">
+      <option value="folder">Folder</option>
+      <option value="file">File</option>
+    </select>
+    <input type="text" id="exclude-input" placeholder="name to exclude" onkeydown="if(event.key==='Enter')addExclude()">
     <button onclick="addExclude()">Add</button>
   </div>`;
 
@@ -1382,17 +1396,21 @@ function renderExcludes(data) {
 
 function saveExcludes() {
   localStorage.setItem('viewllm-excludes', JSON.stringify(state.customExcludes));
+  localStorage.setItem('viewllm-file-excludes', JSON.stringify(state.customFileExcludes));
 }
 
 function addExclude() {
   const input = document.getElementById('exclude-input');
+  const typeEl = document.getElementById('exclude-type');
   const pattern = input.value.trim();
   if (!pattern) return;
-  if (state.customExcludes.some(p => p.toLowerCase() === pattern.toLowerCase())) {
+  const isFile = typeEl && typeEl.value === 'file';
+  const list = isFile ? state.customFileExcludes : state.customExcludes;
+  if (list.some(p => p.toLowerCase() === pattern.toLowerCase())) {
     input.value = '';
     return;
   }
-  state.customExcludes.push(pattern);
+  list.push(pattern);
   saveExcludes();
   input.value = '';
   fetchExcludes();
@@ -1402,8 +1420,12 @@ function addExclude() {
   fetchTree();
 }
 
-function removeExclude(pattern) {
-  state.customExcludes = state.customExcludes.filter(p => p.toLowerCase() !== pattern.toLowerCase());
+function removeExclude(type, pattern) {
+  if (type === 'file') {
+    state.customFileExcludes = state.customFileExcludes.filter(p => p.toLowerCase() !== pattern.toLowerCase());
+  } else {
+    state.customExcludes = state.customExcludes.filter(p => p.toLowerCase() !== pattern.toLowerCase());
+  }
   saveExcludes();
   fetchExcludes();
   lastRecentKey = '';
@@ -1490,8 +1512,9 @@ function createFileItem(file, showThumb) {
 let lastRecentKey = '';
 
 function excludesParam() {
-  if (!state.customExcludes.length) return '';
-  return '&excludes=' + encodeURIComponent(state.customExcludes.join(','));
+  const parts = [...state.customExcludes, ...state.customFileExcludes.map(f => 'file:' + f)];
+  if (!parts.length) return '';
+  return '&excludes=' + encodeURIComponent(parts.join(','));
 }
 
 async function fetchRecent() {
@@ -1528,7 +1551,8 @@ let lastTreeKey = '';
 
 async function fetchTree() {
   try {
-    const ep = state.customExcludes.length ? '?excludes=' + encodeURIComponent(state.customExcludes.join(',')) : '';
+    const parts = [...state.customExcludes, ...state.customFileExcludes.map(f => 'file:' + f)];
+    const ep = parts.length ? '?excludes=' + encodeURIComponent(parts.join(',')) : '';
     const res = await fetch('/api/tree' + ep);
     const tree = await res.json();
     state.allFiles = collectFiles(tree);

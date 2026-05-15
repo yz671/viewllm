@@ -191,22 +191,29 @@ var defaultExcludes = []string{
 	"target", "vendor", "coverage",
 }
 
+var defaultFileExcludes = []string{
+	"CLAUDE.md", "AGENTS.md", ".cursorrules", ".cursorignore",
+	".aiderignore", ".gitignore", ".dockerignore",
+	"Thumbs.db", ".DS_Store",
+}
+
 type previewCache struct {
 	mtime   int64
 	preview string
 }
 
 type Server struct {
-	rootDir     string
-	mu          sync.RWMutex
-	files       []FileInfo
-	previewMu   sync.Mutex
-	previews    map[string]previewCache
-	cliExcludes []string
+	rootDir         string
+	mu              sync.RWMutex
+	files           []FileInfo
+	previewMu       sync.Mutex
+	previews        map[string]previewCache
+	cliExcludes     []string
+	cliFileExcludes []string
 }
 
-func NewServer(rootDir string, cliExcludes []string) *Server {
-	s := &Server{rootDir: rootDir, cliExcludes: cliExcludes, previews: make(map[string]previewCache)}
+func NewServer(rootDir string, cliExcludes, cliFileExcludes []string) *Server {
+	s := &Server{rootDir: rootDir, cliExcludes: cliExcludes, cliFileExcludes: cliFileExcludes, previews: make(map[string]previewCache)}
 	s.scan()
 	go s.pollLoop()
 	return s
@@ -226,33 +233,62 @@ func (s *Server) isExcluded(name string) bool {
 	return false
 }
 
-func parseClientExcludes(r *http.Request) []string {
-	raw := r.URL.Query().Get("excludes")
-	if raw == "" {
-		return nil
-	}
-	var out []string
-	for _, s := range strings.Split(raw, ",") {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			out = append(out, s)
+func (s *Server) isFileExcluded(name string) bool {
+	for _, pat := range defaultFileExcludes {
+		if strings.EqualFold(name, pat) {
+			return true
 		}
 	}
-	return out
+	for _, pat := range s.cliFileExcludes {
+		if strings.EqualFold(name, pat) {
+			return true
+		}
+	}
+	return false
 }
 
-func matchesClientExclude(filePath string, excludes []string) bool {
-	if len(excludes) == 0 {
-		return false
+type clientExcludes struct {
+	folders []string
+	files   []string
+}
+
+func parseClientExcludes(r *http.Request) clientExcludes {
+	raw := r.URL.Query().Get("excludes")
+	if raw == "" {
+		return clientExcludes{}
+	}
+	var ce clientExcludes
+	for _, s := range strings.Split(raw, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if strings.HasPrefix(s, "file:") {
+			name := strings.TrimPrefix(s, "file:")
+			if name != "" {
+				ce.files = append(ce.files, name)
+			}
+		} else {
+			ce.folders = append(ce.folders, s)
+		}
+	}
+	return ce
+}
+
+func matchesClientExclude(filePath string, ce clientExcludes) bool {
+	name := filepath.Base(filePath)
+	for _, ex := range ce.files {
+		if strings.EqualFold(name, ex) {
+			return true
+		}
 	}
 	dir := filepath.Dir(filePath)
-	if dir == "." {
-		return false
-	}
-	for _, part := range strings.Split(dir, string(filepath.Separator)) {
-		for _, ex := range excludes {
-			if strings.EqualFold(part, ex) {
-				return true
+	if dir != "." {
+		for _, part := range strings.Split(dir, string(filepath.Separator)) {
+			for _, ex := range ce.folders {
+				if strings.EqualFold(part, ex) {
+					return true
+				}
 			}
 		}
 	}
@@ -269,6 +305,9 @@ func (s *Server) scan() {
 			if path != s.rootDir && s.isExcluded(d.Name()) {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if s.isFileExcluded(d.Name()) {
 			return nil
 		}
 		lower := strings.ToLower(d.Name())
@@ -494,9 +533,11 @@ func (s *Server) handleExcludes(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	resp := map[string][]string{
-		"defaults": defaultExcludes,
-		"cli":      s.cliExcludes,
+	resp := map[string]interface{}{
+		"defaults":     defaultExcludes,
+		"cli":          s.cliExcludes,
+		"fileDefaults": defaultFileExcludes,
+		"fileCli":      s.cliFileExcludes,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -722,6 +763,7 @@ func main() {
 	tunnel := false
 	var dir string
 	var cliExcludes []string
+	var cliFileExcludes []string
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
@@ -730,6 +772,9 @@ func main() {
 			i++
 		} else if args[i] == "-exclude" && i+1 < len(args) {
 			cliExcludes = append(cliExcludes, args[i+1])
+			i++
+		} else if args[i] == "-exclude-file" && i+1 < len(args) {
+			cliFileExcludes = append(cliFileExcludes, args[i+1])
 			i++
 		} else if args[i] == "-tunnel" {
 			tunnel = true
@@ -756,7 +801,7 @@ func main() {
 		log.Fatalf("not a directory: %s", rootDir)
 	}
 
-	srv := NewServer(rootDir, cliExcludes)
+	srv := NewServer(rootDir, cliExcludes, cliFileExcludes)
 
 	http.HandleFunc("/", srv.handleIndex)
 	http.HandleFunc("/api/recent", srv.handleRecent)

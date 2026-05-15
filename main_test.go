@@ -245,21 +245,27 @@ func TestIsExcluded(t *testing.T) {
 
 func TestParseClientExcludes(t *testing.T) {
 	tests := []struct {
-		name  string
-		query string
-		want  int
+		name        string
+		query       string
+		wantFolders int
+		wantFiles   int
 	}{
-		{"empty", "", 0},
-		{"single", "?excludes=logs", 1},
-		{"multiple", "?excludes=logs,tmp,data", 3},
-		{"with spaces", "?excludes=logs%2C%20tmp", 2},
+		{"empty", "", 0, 0},
+		{"single folder", "?excludes=logs", 1, 0},
+		{"multiple folders", "?excludes=logs,tmp,data", 3, 0},
+		{"with spaces", "?excludes=logs%2C%20tmp", 2, 0},
+		{"file exclude", "?excludes=file:CLAUDE.md", 0, 1},
+		{"mixed", "?excludes=logs,file:CLAUDE.md,tmp", 2, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/api/tree"+tt.query, nil)
 			got := parseClientExcludes(req)
-			if len(got) != tt.want {
-				t.Errorf("parseClientExcludes() returned %d items, want %d", len(got), tt.want)
+			if len(got.folders) != tt.wantFolders {
+				t.Errorf("parseClientExcludes() folders = %d, want %d", len(got.folders), tt.wantFolders)
+			}
+			if len(got.files) != tt.wantFiles {
+				t.Errorf("parseClientExcludes() files = %d, want %d", len(got.files), tt.wantFiles)
 			}
 		})
 	}
@@ -267,24 +273,29 @@ func TestParseClientExcludes(t *testing.T) {
 
 func TestMatchesClientExclude(t *testing.T) {
 	tests := []struct {
-		name     string
-		path     string
-		excludes []string
-		want     bool
+		name string
+		path string
+		ce   clientExcludes
+		want bool
 	}{
-		{"no excludes", "a/b/file.html", nil, false},
-		{"match dir", "logs/file.html", []string{"logs"}, true},
-		{"match nested", "a/logs/file.html", []string{"logs"}, true},
-		{"case insensitive", "a/LOGS/file.html", []string{"logs"}, true},
-		{"no match", "a/b/file.html", []string{"logs"}, false},
-		{"root file", "file.html", []string{"logs"}, false},
-		{"partial no match", "a/xxlogsxx/file.html", []string{"logs"}, false},
+		{"no excludes", "a/b/file.html", clientExcludes{}, false},
+		{"match dir", "logs/file.html", clientExcludes{folders: []string{"logs"}}, true},
+		{"match nested", "a/logs/file.html", clientExcludes{folders: []string{"logs"}}, true},
+		{"case insensitive", "a/LOGS/file.html", clientExcludes{folders: []string{"logs"}}, true},
+		{"no match", "a/b/file.html", clientExcludes{folders: []string{"logs"}}, false},
+		{"root file", "file.html", clientExcludes{folders: []string{"logs"}}, false},
+		{"partial no match", "a/xxlogsxx/file.html", clientExcludes{folders: []string{"logs"}}, false},
+		{"file exclude match", "a/b/CLAUDE.md", clientExcludes{files: []string{"CLAUDE.md"}}, true},
+		{"file exclude case insensitive", "a/b/claude.md", clientExcludes{files: []string{"CLAUDE.md"}}, true},
+		{"file exclude no match", "a/b/README.md", clientExcludes{files: []string{"CLAUDE.md"}}, false},
+		{"mixed match folder", "logs/file.html", clientExcludes{folders: []string{"logs"}, files: []string{"CLAUDE.md"}}, true},
+		{"mixed match file", "a/CLAUDE.md", clientExcludes{folders: []string{"logs"}, files: []string{"CLAUDE.md"}}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesClientExclude(tt.path, tt.excludes)
+			got := matchesClientExclude(tt.path, tt.ce)
 			if got != tt.want {
-				t.Errorf("matchesClientExclude(%q, %v) = %v, want %v", tt.path, tt.excludes, got, tt.want)
+				t.Errorf("matchesClientExclude(%q, %v) = %v, want %v", tt.path, tt.ce, got, tt.want)
 			}
 		})
 	}
@@ -299,6 +310,8 @@ func TestScan(t *testing.T) {
 	writeTemp(t, dir, "sub/nested.html", "<html></html>")
 	writeTemp(t, dir, "node_modules/pkg.html", "<html></html>")
 	writeTemp(t, dir, ".git/config.html", "<html></html>")
+	writeTemp(t, dir, "CLAUDE.md", "# Claude config")
+	writeTemp(t, dir, "sub/CLAUDE.md", "# Nested claude config")
 
 	s := &Server{rootDir: dir, previews: make(map[string]previewCache)}
 	s.scan()
@@ -332,6 +345,12 @@ func TestScan(t *testing.T) {
 	}
 	if paths[filepath.Join(".git", "config.html")] {
 		t.Error("scan should exclude .git")
+	}
+	if paths["CLAUDE.md"] {
+		t.Error("scan should exclude CLAUDE.md by default file exclude")
+	}
+	if paths[filepath.Join("sub", "CLAUDE.md")] {
+		t.Error("scan should exclude sub/CLAUDE.md by default file exclude")
 	}
 
 	t.Run("dir field", func(t *testing.T) {
