@@ -1782,7 +1782,7 @@ function showSearchPreview(file, itemEl) {
   const dirPath = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : '';
 
   document.getElementById('sp-filename').textContent = fileName;
-  document.getElementById('sp-dir').textContent = dirPath || '/';
+  document.getElementById('sp-dir').textContent = (dirPath ? dirPath + '/' : '/');
   document.getElementById('sp-time').textContent = relativeTime(file.mtime);
 
   const sizeFile = state.allFiles.find(f => f.path === file.path);
