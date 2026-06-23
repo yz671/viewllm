@@ -1492,7 +1492,7 @@ const state = {
   thumbPreview: localStorage.getItem('viewllm-thumbPreview') !== 'false',
   recentCount: parseInt(localStorage.getItem('viewllm-recentCount')) || 5,
   showHtml: localStorage.getItem('viewllm-showHtml') !== 'false',
-  showMd: localStorage.getItem('viewllm-showMd') !== 'false',
+  showMd: localStorage.getItem('viewllm-showMd') === 'true',
   customExcludes: JSON.parse(localStorage.getItem('viewllm-excludes') || '[]'),
   customFileExcludes: JSON.parse(localStorage.getItem('viewllm-file-excludes') || '[]'),
 };
@@ -1666,21 +1666,22 @@ async function ghLoadFiles() {
       return {
         path: f.path,
         name: parts[parts.length - 1],
-        dir: parts.length > 1 ? parts.slice(0, -1).join('/') : '',
         sha: f.sha,
-        size: f.size,
         mtime: 0,
       };
     });
 
-  state.allFiles = ghState.files.map(function(f) { return { path: f.path, mtime: f.mtime }; });
+  ghRerender();
+  ghFetchTimestamps();
+}
+
+// Reset the change-detection keys and repaint the sidebar from ghState.files.
+// ghRenderTree owns state.allFiles and the unread count.
+function ghRerender() {
   lastRecentKey = '';
   lastTreeKey = '';
   ghRenderRecent();
   ghRenderTree();
-  updateUnreadUI();
-
-  ghFetchTimestamps();
 }
 
 async function ghFetchTimestamps() {
@@ -1702,25 +1703,12 @@ async function ghFetchTimestamps() {
 
   await Promise.all(Array(Math.min(concurrency, files.length)).fill(null).map(function() { return worker(); }));
 
-  state.allFiles = ghState.files.map(function(f) { return { path: f.path, mtime: f.mtime }; });
-  lastRecentKey = '';
-  lastTreeKey = '';
-  ghRenderRecent();
-  ghRenderTree();
-  updateUnreadUI();
+  ghRerender();
 }
 
+// Paints the recent list from ghState.files. Section visibility and the
+// recentCount===0 case are handled by fetchRecent before this is called.
 function ghRenderRecent() {
-  var section = document.getElementById('recent-section');
-  var divider = section.nextElementSibling;
-  if (state.recentCount === 0) {
-    section.style.display = 'none';
-    if (divider) divider.style.display = 'none';
-    return;
-  }
-  section.style.display = '';
-  if (divider) divider.style.display = '';
-
   var files = ghState.files
     .filter(function(f) { return fileTypeVisible(f.path); })
     .sort(function(a, b) { return b.mtime - a.mtime; })
@@ -1773,12 +1761,12 @@ function ghBuildTree(files) {
 
 function ghRenderTree() {
   var filtered = ghState.files.filter(function(f) { return fileTypeVisible(f.path); });
-  state.allFiles = filtered.map(function(f) { return { path: f.path, mtime: f.mtime }; });
-  updateUnreadUI();
-
   var key = filtered.map(function(f) { return f.path + ':' + f.mtime; }).join('|');
   if (key === lastTreeKey) return;
   lastTreeKey = key;
+
+  state.allFiles = filtered.map(function(f) { return { path: f.path, mtime: f.mtime }; });
+  updateUnreadUI();
 
   var tree = ghBuildTree(filtered);
   var list = document.getElementById('tree-list');
@@ -1793,12 +1781,7 @@ async function ghOpenFile(path, updateHash) {
   state.currentFile = path;
   if (updateHash !== false) window.location.hash = encodeURIComponent(path);
 
-  var parts = path.split('/');
-  var fileName = parts.pop();
-  var dirPath = parts.length ? parts.join('/') + '/' : '';
-  document.getElementById('file-path-dir').textContent = dirPath;
-  document.getElementById('file-path-name').textContent = fileName;
-  document.getElementById('header-center').classList.add('visible');
+  setHeaderPath(path);
 
   var main = document.getElementById('main');
   var welcome = document.getElementById('welcome');
@@ -1809,6 +1792,17 @@ async function ghOpenFile(path, updateHash) {
     iframe = document.createElement('iframe');
     main.appendChild(iframe);
   }
+  // A blob's content is immutable for its SHA, so reuse the cached render instead
+  // of re-downloading when the same file (unchanged SHA) is reopened.
+  var cached = ghState.blobUrls[path];
+  if (cached && cached.sha === file.sha) {
+    iframe.src = cached.url;
+    markAsRead(path, file.mtime);
+    setActiveFileItem(path);
+    if (state.mobileOpen) toggleMobileSidebar();
+    return;
+  }
+  if (cached) URL.revokeObjectURL(cached.url);
   iframe.src = 'about:blank';
 
   try {
@@ -1836,20 +1830,14 @@ async function ghOpenFile(path, updateHash) {
       blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/html' }));
     }
 
-    if (ghState.blobUrls[path]) URL.revokeObjectURL(ghState.blobUrls[path]);
-    ghState.blobUrls[path] = blobUrl;
+    ghState.blobUrls[path] = { sha: file.sha, url: blobUrl };
     iframe.src = blobUrl;
   } catch (e) {
     iframe.srcdoc = '<body style="font-family:sans-serif;padding:40px;color:#666"><h2>Failed to load file</h2><p>' + esc(e.message) + '</p></body>';
   }
 
   markAsRead(path, file.mtime);
-
-  document.querySelectorAll('.file-item').forEach(function(el) {
-    el.classList.toggle('active', el.dataset.path === path);
-    var dot = el.querySelector('.unread-dot');
-    if (dot && el.dataset.path === path) dot.remove();
-  });
+  setActiveFileItem(path);
 
   if (state.mobileOpen) toggleMobileSidebar();
 }
@@ -1896,7 +1884,7 @@ function ghDisconnect() {
   ghState.owner = '';
   ghState.repo = '';
   ghState.files = [];
-  for (var url of Object.values(ghState.blobUrls)) URL.revokeObjectURL(url);
+  for (var entry of Object.values(ghState.blobUrls)) URL.revokeObjectURL(entry.url);
   ghState.blobUrls = {};
   localStorage.removeItem('viewllm-gh-active');
   state.allFiles = [];
@@ -2153,6 +2141,22 @@ function loadFromHash() {
   }
 }
 
+function setHeaderPath(path) {
+  const parts = path.split('/');
+  const fileName = parts.pop();
+  document.getElementById('file-path-dir').textContent = parts.length ? parts.join('/') + '/' : '';
+  document.getElementById('file-path-name').textContent = fileName;
+  document.getElementById('header-center').classList.add('visible');
+}
+
+function setActiveFileItem(path) {
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.path === path);
+    const dot = el.querySelector('.unread-dot');
+    if (dot && el.dataset.path === path) dot.remove();
+  });
+}
+
 function openFile(path, updateHash = true) {
   if (ghState.connected) { ghOpenFile(path, updateHash); return; }
   state.currentFile = path;
@@ -2164,12 +2168,7 @@ function openFile(path, updateHash = true) {
   if (file) markAsRead(path, file.mtime);
   const cacheBust = file ? file.mtime : Date.now();
 
-  const parts = path.split('/');
-  const fileName = parts.pop();
-  const dirPath = parts.length ? parts.join('/') + '/' : '';
-  document.getElementById('file-path-dir').textContent = dirPath;
-  document.getElementById('file-path-name').textContent = fileName;
-  document.getElementById('header-center').classList.add('visible');
+  setHeaderPath(path);
 
   const main = document.getElementById('main');
   const welcome = document.getElementById('welcome');
@@ -2182,11 +2181,7 @@ function openFile(path, updateHash = true) {
   }
   iframe.src = '/files/' + path + '?v=' + cacheBust;
 
-  document.querySelectorAll('.file-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.path === path);
-    const dot = el.querySelector('.unread-dot');
-    if (dot && el.dataset.path === path) dot.remove();
-  });
+  setActiveFileItem(path);
 
   if (state.mobileOpen) {
     toggleMobileSidebar();
@@ -2240,10 +2235,13 @@ function excludesParam() {
   return '&excludes=' + encodeURIComponent(parts.join(','));
 }
 
+// Server caps /api/recent at 50; over-fetch up to this when a type is hidden,
+// then slice to recentCount so the list backfills after filtering.
+const RECENT_BACKFILL_MAX = 50;
+
 async function fetchRecent() {
   invalidateReadMapCache();
   if (ghState.connecting) return;
-  if (ghState.connected) { ghRenderRecent(); return; }
   const section = document.getElementById('recent-section');
   const divider = section.nextElementSibling;
   if (state.recentCount === 0) {
@@ -2254,16 +2252,20 @@ async function fetchRecent() {
   }
   section.style.display = '';
   if (divider) divider.style.display = '';
+  if (ghState.connected) { ghRenderRecent(); return; }
   try {
-    const res = await fetch('/api/recent?n=' + state.recentCount + excludesParam());
+    // When a file type is hidden, request extra (server caps at RECENT_BACKFILL_MAX)
+    // so the list still backfills to recentCount after filtering by type.
+    const fetchN = (state.showHtml && state.showMd) ? state.recentCount : RECENT_BACKFILL_MAX;
+    const res = await fetch('/api/recent?n=' + fetchN + excludesParam());
     const files = await res.json();
     if (files) files.forEach(f => { if (f.preview) state.previewMap[f.path] = f.preview; });
-    const key = files ? files.map(f => f.path + ':' + f.mtime).join('|') : '';
+    const filtered = (files ? files.filter(f => fileTypeVisible(f.path)) : []).slice(0, state.recentCount);
+    const key = filtered.length ? filtered.map(f => f.path + ':' + f.mtime).join('|') : 'EMPTY';
     if (key === lastRecentKey) return;
     lastRecentKey = key;
     const list = document.getElementById('recent-list');
     list.innerHTML = '';
-    const filtered = files ? files.filter(f => fileTypeVisible(f.path)) : [];
     if (filtered.length === 0) {
       list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No files found</div>';
       return;
