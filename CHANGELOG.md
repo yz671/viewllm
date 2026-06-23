@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.6.0 (2026-06-23)
+
+- **Browse GitHub repositories** — view HTML/Markdown reports straight from a GitHub repo, even after the machine that generated them is gone (a CI job, a spot instance, a teammate's laptop). Open the **Source** section in settings, enter `owner/repo`, and connect
+- **Private repo support** — authenticate with a GitHub personal access token; the in-app help links to GitHub's fine-grained token page and recommends granting only **Contents: Read-only** access. Public repos work with no token
+- **Single-call file listing** — the full repo tree is fetched in one GitHub Trees API request; file contents load on demand as blobs and render in the browser, with nothing written to disk
+- **Recent-commit sorting** — recent files are ordered by each file's last commit date, fetched in parallel after the tree loads
+- **Persistent connection** — the connected repo and token are saved in localStorage, so viewllm reconnects automatically on the next visit; a source bar in the sidebar shows the active repo with refresh and disconnect controls
+
 ## v0.5.7 (2026-05-15)
 
 - **File-level excludes** — ignore specific files (not just folders) by name. Default file excludes: `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.cursorignore`, `.aiderignore`, `.gitignore`, `.dockerignore`, `Thumbs.db`, `.DS_Store`

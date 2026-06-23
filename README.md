@@ -54,6 +54,7 @@ Run it in any project folder. You get:
 - **Per-device unread tracking** — each person who opens the link gets their own read/unread state
 - **Search** — file tree, search bar, hover preview popups on all file items, thumbnails, text snippets
 - **HTML and Markdown** — renders both. Markdown gets GitHub-style formatting
+- **Browse GitHub repos** — view reports straight from a private GitHub repository, even after the machine that generated them is gone
 - **SSH, WSL, remote servers** — works anywhere you have a terminal
 - **Themes** — Light, Dark, Solarized
 
@@ -138,6 +139,27 @@ viewllm serving ./reports — starting tunnel (powered by Cloudflare)...
   This link expires when you stop viewllm — a new one is created each time.
 ```
 
+## Browse a GitHub repository
+
+viewllm can read reports directly from a GitHub repository — useful when the machine that generated them is no longer running, such as a CI job, a short-lived cloud instance, or a teammate's laptop. Commit your `.html`/`.md` reports to a repo, then open them from anywhere.
+
+1. Start viewllm with no directory: `npx viewllm@latest`
+2. Click the gear icon, then under **Source** choose **Browse GitHub repository…**
+3. Enter the repo as `owner/repo` (or paste its GitHub URL), add a token for private repos, and click **Connect**
+
+The file tree, recent files, and search all work exactly as they do in local mode. The full file list is fetched in a single GitHub API call; individual reports are downloaded on demand and rendered in your browser, with nothing written to disk. The repo and token are saved in your browser's localStorage, so viewllm reconnects automatically next time.
+
+### Generating a token
+
+Public repositories work without a token, subject to GitHub's unauthenticated rate limit of 60 requests per hour.
+
+For **private** repositories you need a personal access token. viewllm only ever reads, so grant the most minimal read-only access:
+
+- **Recommended — fine-grained token.** [Create one here](https://github.com/settings/personal-access-tokens/new). Under **Repository access**, choose *Only select repositories* and pick your reports repo. Under **Permissions → Repository permissions**, set **Contents: Read-only** — that is the only permission needed (Metadata: Read-only is added automatically). This token can read just that one repo and cannot write anything.
+- **Classic token.** Simpler but much broader: the `repo` scope grants full read **and write** access to all of your private repositories. Use it only if a fine-grained token isn't an option.
+
+The token is sent only to GitHub's API, straight from your browser. An authenticated token raises the rate limit to 5,000 requests per hour, which is far more than browsing reports needs.
+
 ## Works with any tool
 
 Works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything else that outputs `.html` or `.md` files.
@@ -168,6 +190,7 @@ Click the gear icon to access per-device settings:
 - **Thumbnail preview** — show/hide live mini-renders
 - **Recent files count** — 0 (off), 3, 5, 10, 15, or 20
 - **Ignored folders & files** — add/remove custom exclude patterns for both folders and files
+- **Source** — browse a GitHub repository instead of local files
 
 All settings stored in localStorage — each device has its own preferences.
 
@@ -200,8 +223,8 @@ Single Go binary with the entire frontend embedded via `go:embed`. Scans for `.h
 The codebase is intentionally simple — two files:
 
 ```
-main.go              → Server, API, file scanning (~650 lines)
-frontend/index.html  → Entire UI, embedded into the binary (~40KB)
+main.go              → Server, API, file scanning (~865 lines)
+frontend/index.html  → Entire UI, embedded into the binary (~70KB)
 ```
 
 ## License

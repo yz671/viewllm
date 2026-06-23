@@ -1036,6 +1036,229 @@ body {
     width: 100%;
   }
 }
+
+.gh-source-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-active);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.gh-source-icon { flex-shrink: 0; width: 16px; height: 16px; }
+
+.gh-source-name {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-source-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.gh-source-btn:hover { background: var(--bg-hover); color: var(--text); }
+
+.gh-connect-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.gh-connect-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.gh-connect-desc {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.gh-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.gh-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  width: 100%;
+}
+
+.gh-input:focus { border-color: var(--accent); }
+
+.gh-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.gh-help a { color: var(--accent); text-decoration: none; }
+.gh-help a:hover { text-decoration: underline; }
+
+.gh-help code {
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.gh-connect-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.gh-connect-btn:hover { background: var(--accent-hover); }
+.gh-connect-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.gh-error {
+  color: #e53e3e;
+  font-size: 13px;
+  min-height: 0;
+}
+
+.gh-recent-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gh-recent-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: monospace;
+  color: var(--text);
+  transition: background 0.1s;
+}
+
+.gh-recent-item:hover { background: var(--bg-hover); }
+
+.gh-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.gh-modal-overlay.open { display: flex; }
+
+.gh-modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 440px;
+  max-width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+}
+
+.gh-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.gh-modal-body { padding: 18px; }
+
+.gh-connected-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.gh-disconnect-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.gh-disconnect-btn:hover { background: var(--bg-hover); }
+
+.gh-modal-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 16px 0 10px;
+}
+
+.settings-source-btn {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.settings-source-btn:hover { background: var(--bg-hover); }
 </style>
 </head>
 <body>
@@ -1118,13 +1341,53 @@ body {
       <div class="settings-section-title" style="display:flex;align-items:center;gap:6px">Ignored Folders &amp; Files<span class="help-icon">?<div class="help-tooltip">Exact name match, case-insensitive. Use the dropdown to choose folder or file.<br><br><strong>Folder examples:</strong> logs, temp, .hidden<br><strong>File examples:</strong> CLAUDE.md, .cursorrules</div></span></div>
       <div id="excludes-content"></div>
     </div>
+    <div class="settings-section">
+      <div class="settings-section-title">Source</div>
+      <div id="gh-settings-status" style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Viewing local files</div>
+      <button onclick="openGhModal()" class="settings-source-btn">Browse GitHub repository&hellip;</button>
+    </div>
     <div class="settings-footer">
-      viewllm v0.5.4 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.6.0 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+
+  <div class="gh-modal-overlay" id="gh-modal-overlay" onclick="if(event.target===this)closeGhModal()">
+    <div class="gh-modal">
+      <div class="gh-modal-header">
+        Browse GitHub Repository
+        <button class="settings-close" onclick="closeGhModal()">&times;</button>
+      </div>
+      <div class="gh-modal-body">
+        <div id="gh-connected-view" style="display:none">
+          <div class="gh-connected-banner">
+            <span>Connected to <strong id="gh-settings-repo"></strong></span>
+            <button onclick="ghDisconnect()" class="gh-disconnect-btn">Disconnect</button>
+          </div>
+          <div class="gh-modal-subtitle">Connect a different repository</div>
+        </div>
+        <p class="gh-connect-desc" style="margin-bottom:14px">Browse HTML/Markdown reports from a GitHub repository &mdash; even after this server is gone.</p>
+        <div class="gh-form">
+          <input id="gh-repo-input" type="text" placeholder="owner/repo or GitHub URL" class="gh-input" onkeydown="if(event.key==='Enter')ghConnectFromUI()">
+          <input id="gh-token-input" type="password" placeholder="Personal access token (for private repos)" class="gh-input" onkeydown="if(event.key==='Enter')ghConnectFromUI()">
+          <div class="gh-help">
+            For private repos, <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">create a fine-grained token</a> with <strong>Contents: Read-only</strong> access to the repo. Public repos work without a token.
+          </div>
+          <button onclick="ghConnectFromUI()" class="gh-connect-btn" id="gh-connect-btn">Connect</button>
+          <div class="gh-error" id="gh-error"></div>
+        </div>
+        <div id="gh-recent-repos"></div>
+      </div>
     </div>
   </div>
 
   <div class="content">
     <aside class="sidebar" id="sidebar">
+      <div class="gh-source-bar" id="gh-source-bar">
+        <svg class="gh-source-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span class="gh-source-name" id="gh-source-name"></span>
+        <button class="gh-source-btn" onclick="ghRefresh()" id="gh-refresh-btn" title="Refresh">&#8635;</button>
+        <button class="gh-source-btn" onclick="ghDisconnect()" title="Disconnect">&times;</button>
+      </div>
       <div class="sidebar-search">
         <div class="search-input-wrap">
           <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
@@ -1205,11 +1468,17 @@ body {
         <div class="welcome-hint">
           On mobile, tap <kbd>Files</kbd> to browse &middot; Pull down to refresh the current report
         </div>
+        <div class="gh-connect-section">
+          <div class="gh-connect-title">Browse a GitHub repository</div>
+          <p class="gh-connect-desc">View HTML/Markdown reports from a remote repo &mdash; even after this server is gone.</p>
+          <button onclick="openGhModal()" class="gh-connect-btn">Connect a repository</button>
+        </div>
       </div>
     </main>
   </div>
 </div>
 
+<script src="/static/marked.min.js"></script>
 <script>
 const state = {
   currentFile: null,
@@ -1226,6 +1495,18 @@ const state = {
   showMd: localStorage.getItem('viewllm-showMd') !== 'false',
   customExcludes: JSON.parse(localStorage.getItem('viewllm-excludes') || '[]'),
   customFileExcludes: JSON.parse(localStorage.getItem('viewllm-file-excludes') || '[]'),
+};
+
+const ghState = {
+  connected: false,
+  connecting: false,
+  owner: '',
+  repo: '',
+  branch: '',
+  token: localStorage.getItem('viewllm-gh-token') || '',
+  files: [],
+  blobUrls: {},
+  recentRepos: JSON.parse(localStorage.getItem('viewllm-gh-repos') || '[]'),
 };
 
 let _readMapCache = null;
@@ -1299,17 +1580,411 @@ function toggleRecentCollapse() {
   localStorage.setItem('viewllm-recentOpen', open);
 }
 
+// ==================== GitHub Mode ====================
+
+async function ghAPI(path) {
+  const headers = { Accept: 'application/vnd.github.v3+json' };
+  if (ghState.token) headers['Authorization'] = 'token ' + ghState.token;
+  const res = await fetch('https://api.github.com' + path, { headers });
+  if (res.status === 401) throw new Error('Invalid token or no access to this repository');
+  if (res.status === 404) throw new Error('Repository not found');
+  if (res.status === 403) {
+    if (res.headers.get('X-RateLimit-Remaining') === '0') throw new Error('GitHub API rate limit exceeded. Try again later.');
+    throw new Error('Access denied');
+  }
+  if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+  return res.json();
+}
+
+function parseGhRepo(input) {
+  input = input.trim().replace(/\/+$/, '').replace(/\.git$/, '');
+  if (input.includes('github.com')) {
+    const m = input.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    if (m) return { owner: m[1], repo: m[2] };
+  }
+  const parts = input.split('/');
+  if (parts.length >= 2) return { owner: parts[0], repo: parts[1] };
+  return null;
+}
+
+function ghConnectFromUI() {
+  const repoInput = document.getElementById('gh-repo-input');
+  const tokenInput = document.getElementById('gh-token-input');
+  const parsed = parseGhRepo(repoInput.value);
+  if (!parsed) {
+    document.getElementById('gh-error').textContent = 'Enter a valid repository (e.g., owner/repo)';
+    return;
+  }
+  ghConnect(parsed.owner, parsed.repo, tokenInput.value.trim());
+}
+
+async function ghConnect(owner, repo, token) {
+  const errEl = document.getElementById('gh-error');
+  const btn = document.getElementById('gh-connect-btn');
+  if (errEl) errEl.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Connecting...'; }
+
+  ghState.connecting = true;
+  ghState.token = token || '';
+  ghState.owner = owner;
+  ghState.repo = repo;
+
+  try {
+    const info = await ghAPI('/repos/' + owner + '/' + repo);
+    ghState.branch = info.default_branch;
+    ghState.connected = true;
+
+    if (token) localStorage.setItem('viewllm-gh-token', token);
+    const key = owner + '/' + repo;
+    localStorage.setItem('viewllm-gh-active', key);
+    ghState.recentRepos = [key, ...ghState.recentRepos.filter(r => r !== key)].slice(0, 10);
+    localStorage.setItem('viewllm-gh-repos', JSON.stringify(ghState.recentRepos));
+
+    await ghLoadFiles();
+    ghUpdateUI();
+    // Close the modal so the file tree is visible
+    closeGhModal();
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
+    ghState.connected = false;
+  } finally {
+    ghState.connecting = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Connect'; }
+  }
+}
+
+async function ghLoadFiles() {
+  const tree = await ghAPI('/repos/' + ghState.owner + '/' + ghState.repo + '/git/trees/' + ghState.branch + '?recursive=1');
+  ghState.files = tree.tree
+    .filter(function(f) { return f.type === 'blob'; })
+    .filter(function(f) {
+      var l = f.path.toLowerCase();
+      return l.endsWith('.html') || l.endsWith('.md');
+    })
+    .map(function(f) {
+      var parts = f.path.split('/');
+      return {
+        path: f.path,
+        name: parts[parts.length - 1],
+        dir: parts.length > 1 ? parts.slice(0, -1).join('/') : '',
+        sha: f.sha,
+        size: f.size,
+        mtime: 0,
+      };
+    });
+
+  state.allFiles = ghState.files.map(function(f) { return { path: f.path, mtime: f.mtime }; });
+  lastRecentKey = '';
+  lastTreeKey = '';
+  ghRenderRecent();
+  ghRenderTree();
+  updateUnreadUI();
+
+  ghFetchTimestamps();
+}
+
+async function ghFetchTimestamps() {
+  var files = ghState.files;
+  var concurrency = 6;
+  var idx = 0;
+
+  async function worker() {
+    while (idx < files.length) {
+      var file = files[idx++];
+      try {
+        var commits = await ghAPI('/repos/' + ghState.owner + '/' + ghState.repo + '/commits?path=' + encodeURIComponent(file.path) + '&per_page=1');
+        if (commits.length > 0) {
+          file.mtime = Math.floor(new Date(commits[0].commit.author.date).getTime() / 1000);
+        }
+      } catch (e) {}
+    }
+  }
+
+  await Promise.all(Array(Math.min(concurrency, files.length)).fill(null).map(function() { return worker(); }));
+
+  state.allFiles = ghState.files.map(function(f) { return { path: f.path, mtime: f.mtime }; });
+  lastRecentKey = '';
+  lastTreeKey = '';
+  ghRenderRecent();
+  ghRenderTree();
+  updateUnreadUI();
+}
+
+function ghRenderRecent() {
+  var section = document.getElementById('recent-section');
+  var divider = section.nextElementSibling;
+  if (state.recentCount === 0) {
+    section.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  if (divider) divider.style.display = '';
+
+  var files = ghState.files
+    .filter(function(f) { return fileTypeVisible(f.path); })
+    .sort(function(a, b) { return b.mtime - a.mtime; })
+    .slice(0, state.recentCount);
+
+  var key = files.map(function(f) { return f.path + ':' + f.mtime; }).join('|');
+  if (key === lastRecentKey) return;
+  lastRecentKey = key;
+
+  var list = document.getElementById('recent-list');
+  list.innerHTML = '';
+  if (files.length === 0) {
+    list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No files found</div>';
+    return;
+  }
+  files.forEach(function(f) { list.appendChild(createFileItem(f, false)); });
+}
+
+function ghBuildTree(files) {
+  var root = { name: 'root', children: [] };
+  var dirMap = { '': root };
+  var sorted = files.slice().sort(function(a, b) { return a.path.localeCompare(b.path); });
+
+  sorted.forEach(function(f) {
+    var parts = f.path.split('/');
+    var fileName = parts.pop();
+    var parent = root;
+    var currentPath = '';
+
+    parts.forEach(function(part) {
+      currentPath = currentPath ? currentPath + '/' + part : part;
+      if (!dirMap[currentPath]) {
+        var node = { name: part, children: [] };
+        dirMap[currentPath] = node;
+        parent.children.push(node);
+      }
+      parent = dirMap[currentPath];
+    });
+
+    parent.children.push({
+      name: fileName,
+      path: f.path,
+      isFile: true,
+      mtime: f.mtime,
+    });
+  });
+
+  return root.children;
+}
+
+function ghRenderTree() {
+  var filtered = ghState.files.filter(function(f) { return fileTypeVisible(f.path); });
+  state.allFiles = filtered.map(function(f) { return { path: f.path, mtime: f.mtime }; });
+  updateUnreadUI();
+
+  var key = filtered.map(function(f) { return f.path + ':' + f.mtime; }).join('|');
+  if (key === lastTreeKey) return;
+  lastTreeKey = key;
+
+  var tree = ghBuildTree(filtered);
+  var list = document.getElementById('tree-list');
+  list.innerHTML = '';
+  tree.forEach(function(node) { list.appendChild(renderNode(node, '')); });
+}
+
+async function ghOpenFile(path, updateHash) {
+  var file = ghState.files.find(function(f) { return f.path === path; });
+  if (!file) return;
+
+  state.currentFile = path;
+  if (updateHash !== false) window.location.hash = encodeURIComponent(path);
+
+  var parts = path.split('/');
+  var fileName = parts.pop();
+  var dirPath = parts.length ? parts.join('/') + '/' : '';
+  document.getElementById('file-path-dir').textContent = dirPath;
+  document.getElementById('file-path-name').textContent = fileName;
+  document.getElementById('header-center').classList.add('visible');
+
+  var main = document.getElementById('main');
+  var welcome = document.getElementById('welcome');
+  if (welcome) welcome.style.display = 'none';
+
+  var iframe = main.querySelector('iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    main.appendChild(iframe);
+  }
+  iframe.src = 'about:blank';
+
+  try {
+    var blob = await ghAPI('/repos/' + ghState.owner + '/' + ghState.repo + '/git/blobs/' + file.sha);
+    var raw = blob.content.replace(/\n/g, '');
+    var bytes = Uint8Array.from(atob(raw), function(c) { return c.charCodeAt(0); });
+    var blobUrl;
+
+    if (path.toLowerCase().endsWith('.md')) {
+      var text = new TextDecoder().decode(bytes);
+      var rendered = marked.parse(text);
+      var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+        'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;max-width:980px;margin:0 auto;padding:32px 24px;color:#1f2328;line-height:1.6;font-size:16px}' +
+        'h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h2{font-size:1.5em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h3{font-size:1.25em}' +
+        'a{color:#0969da;text-decoration:none}a:hover{text-decoration:underline}' +
+        'code{background:#eff1f3;padding:.2em .4em;border-radius:6px;font-size:85%}' +
+        'pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto;line-height:1.45}pre code{background:none;padding:0;font-size:85%}' +
+        'blockquote{margin:0;padding:0 1em;color:#656d76;border-left:.25em solid #d1d9e0}' +
+        'table{border-collapse:collapse;width:100%}th,td{padding:6px 13px;border:1px solid #d1d9e0}th{background:#f6f8fa;font-weight:600}tr:nth-child(2n){background:#f6f8fa}' +
+        'img{max-width:100%}hr{height:.25em;padding:0;margin:24px 0;background:#d1d9e0;border:0}' +
+        'ul,ol{padding-left:2em}li+li{margin-top:.25em}' +
+        '</style></head><body>' + rendered + '</body></html>';
+      blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    } else {
+      blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/html' }));
+    }
+
+    if (ghState.blobUrls[path]) URL.revokeObjectURL(ghState.blobUrls[path]);
+    ghState.blobUrls[path] = blobUrl;
+    iframe.src = blobUrl;
+  } catch (e) {
+    iframe.srcdoc = '<body style="font-family:sans-serif;padding:40px;color:#666"><h2>Failed to load file</h2><p>' + esc(e.message) + '</p></body>';
+  }
+
+  markAsRead(path, file.mtime);
+
+  document.querySelectorAll('.file-item').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.path === path);
+    var dot = el.querySelector('.unread-dot');
+    if (dot && el.dataset.path === path) dot.remove();
+  });
+
+  if (state.mobileOpen) toggleMobileSidebar();
+}
+
+function ghUpdateUI() {
+  var bar = document.getElementById('gh-source-bar');
+  var connectedView = document.getElementById('gh-connected-view');
+  var status = document.getElementById('gh-settings-status');
+  var repoLabel = ghState.owner + '/' + ghState.repo;
+
+  if (ghState.connected) {
+    bar.style.display = 'flex';
+    document.getElementById('gh-source-name').textContent = repoLabel;
+    document.getElementById('gh-settings-repo').textContent = repoLabel;
+    if (connectedView) connectedView.style.display = '';
+    if (status) status.textContent = 'Connected to ' + repoLabel;
+  } else {
+    bar.style.display = 'none';
+    if (connectedView) connectedView.style.display = 'none';
+    if (status) status.textContent = 'Viewing local files';
+  }
+}
+
+function openGhModal() {
+  if (state.settingsOpen) toggleSettings();
+  document.getElementById('gh-modal-overlay').classList.add('open');
+  var errEl = document.getElementById('gh-error');
+  if (errEl) errEl.textContent = '';
+  ghRenderRecentRepos();
+  var tokenInput = document.getElementById('gh-token-input');
+  if (tokenInput && ghState.token && !tokenInput.value) tokenInput.value = ghState.token;
+  setTimeout(function() {
+    var ri = document.getElementById('gh-repo-input');
+    if (ri) ri.focus();
+  }, 50);
+}
+
+function closeGhModal() {
+  document.getElementById('gh-modal-overlay').classList.remove('open');
+}
+
+function ghDisconnect() {
+  ghState.connected = false;
+  ghState.owner = '';
+  ghState.repo = '';
+  ghState.files = [];
+  for (var url of Object.values(ghState.blobUrls)) URL.revokeObjectURL(url);
+  ghState.blobUrls = {};
+  localStorage.removeItem('viewllm-gh-active');
+  state.allFiles = [];
+  state.currentFile = null;
+  lastRecentKey = '';
+  lastTreeKey = '';
+  ghUpdateUI();
+
+  var welcome = document.getElementById('welcome');
+  if (welcome) welcome.style.display = '';
+  var iframe = document.querySelector('#main iframe');
+  if (iframe) iframe.remove();
+  document.getElementById('header-center').classList.remove('visible');
+
+  fetchRecent();
+  fetchTree();
+  updateUnreadUI();
+  ghRenderRecentRepos();
+}
+
+async function ghRefresh() {
+  if (!ghState.connected) return;
+  var btn = document.getElementById('gh-refresh-btn');
+  if (btn) btn.style.opacity = '0.5';
+  try {
+    await ghLoadFiles();
+  } finally {
+    if (btn) btn.style.opacity = '';
+  }
+}
+
+function ghRenderRecentRepos() {
+  var container = document.getElementById('gh-recent-repos');
+  if (!container) return;
+  if (ghState.recentRepos.length === 0) { container.innerHTML = ''; return; }
+  var html = '<div class="gh-recent-title">Recent repositories</div>';
+  ghState.recentRepos.forEach(function(r) {
+    html += '<div class="gh-recent-item" onclick="ghConnectRecent(\'' + esc(r) + '\')">' + esc(r) + '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function ghConnectRecent(repoKey) {
+  var parts = repoKey.split('/');
+  ghConnect(parts[0], parts[1], ghState.token);
+}
+
+// ==================== Init ====================
+
 function init() {
   setTheme(state.theme);
   if (localStorage.getItem('viewllm-recentOpen') !== 'false') {
     document.getElementById('recent-list').classList.add('open');
     document.getElementById('recent-arrow').classList.add('open');
   }
-  loadFromHash();
-  fetchRecent();
-  fetchTree();
+
+  var savedRepo = localStorage.getItem('viewllm-gh-active');
+  if (savedRepo) {
+    var parts = savedRepo.split('/');
+    ghConnect(parts[0], parts[1], ghState.token).then(function() {
+      loadFromHash();
+      // If auto-connect failed, fall back to local mode immediately
+      if (!ghState.connected) { fetchRecent(); fetchTree(); }
+    });
+  } else {
+    loadFromHash();
+    fetchRecent();
+    fetchTree();
+  }
+
+  // Always poll — fetchRecent/fetchTree early-return while in GitHub mode,
+  // so local live-update resumes automatically after a disconnect.
   setInterval(fetchRecent, 2000);
   setInterval(fetchTree, 5000);
+  ghRenderRecentRepos();
+  ghUpdateUI();
+
+  // Prefill token if saved
+  var tokenInput = document.getElementById('gh-token-input');
+  if (tokenInput && ghState.token) tokenInput.value = ghState.token;
+
+  // Escape closes the GitHub modal
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('gh-modal-overlay').classList.contains('open')) {
+      closeGhModal();
+    }
+  });
+
   window.addEventListener('hashchange', loadFromHash);
 }
 
@@ -1479,6 +2154,7 @@ function loadFromHash() {
 }
 
 function openFile(path, updateHash = true) {
+  if (ghState.connected) { ghOpenFile(path, updateHash); return; }
   state.currentFile = path;
   if (updateHash) {
     window.location.hash = encodeURIComponent(path);
@@ -1535,7 +2211,7 @@ function createFileItem(file, showThumb) {
   const previewHtml = (state.textPreview && file.preview) ? `<div class="file-item-preview">${file.preview}</div>` : '';
   const isMd = file.path.toLowerCase().endsWith('.md');
   const thumbSrc = isMd ? `/files/${file.path}?thumb=1` : `/files/${file.path}`;
-  const thumbHtml = (showThumb && state.thumbPreview) ? `<div class="file-item-thumb"><iframe src="${thumbSrc}" ${isMd ? '' : 'loading="lazy" sandbox="allow-same-origin"'} tabindex="-1"></iframe></div>` : '';
+  const thumbHtml = (!ghState.connected && showThumb && state.thumbPreview) ? `<div class="file-item-thumb"><iframe src="${thumbSrc}" ${isMd ? '' : 'loading="lazy" sandbox="allow-same-origin"'} tabindex="-1"></iframe></div>` : '';
   div.innerHTML = `
     <div class="file-item-name-row">
       <span class="file-item-name" title="${file.path}">${file.name}</span>
@@ -1566,6 +2242,8 @@ function excludesParam() {
 
 async function fetchRecent() {
   invalidateReadMapCache();
+  if (ghState.connecting) return;
+  if (ghState.connected) { ghRenderRecent(); return; }
   const section = document.getElementById('recent-section');
   const divider = section.nextElementSibling;
   if (state.recentCount === 0) {
@@ -1597,6 +2275,8 @@ async function fetchRecent() {
 let lastTreeKey = '';
 
 async function fetchTree() {
+  if (ghState.connecting) return;
+  if (ghState.connected) { ghRenderTree(); return; }
   try {
     const parts = [...state.customExcludes, ...state.customFileExcludes.map(f => 'file:' + f)];
     const ep = parts.length ? '?excludes=' + encodeURIComponent(parts.join(',')) : '';
@@ -1797,7 +2477,11 @@ function showSearchPreview(file, itemEl) {
     textEl.style.display = 'none';
   }
 
-  document.getElementById('sp-iframe').src = '/files/' + file.path + '?v=' + file.mtime;
+  if (!ghState.connected) {
+    document.getElementById('sp-iframe').src = '/files/' + file.path + '?v=' + file.mtime;
+  } else {
+    document.getElementById('sp-thumb').style.display = 'none';
+  }
 
   const rect = itemEl.getBoundingClientRect();
   const sidebarRect = document.getElementById('sidebar').getBoundingClientRect();
