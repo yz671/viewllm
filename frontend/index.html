@@ -1347,7 +1347,7 @@ body {
       <button onclick="openGhModal()" class="settings-source-btn">Browse GitHub repository&hellip;</button>
     </div>
     <div class="settings-footer">
-      viewllm v0.6.0 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.6.1 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1685,32 +1685,43 @@ function ghRerender() {
 }
 
 async function ghFetchTimestamps() {
-  var files = ghState.files;
-  var concurrency = 6;
-  var idx = 0;
+  // Date each report from the most recent commit that touched it. We walk recent
+  // commits newest-first rather than making one request per file: the per-file
+  // fan-out is slow and rate-limit-prone, and a failed lookup silently leaves a
+  // file at mtime 0, dropping the newest report out of Recent. Reports committed
+  // together get dated in a single request, and the newest are dated first.
+  // Files not touched within the scanned window keep mtime 0 and stay out of Recent.
+  var myFiles = ghState.files;
+  var owner = ghState.owner, repo = ghState.repo, branch = ghState.branch;
+  var byPath = {};
+  myFiles.forEach(function(f) { byPath[f.path] = f; });
+  var remaining = myFiles.length;
 
-  async function worker() {
-    while (idx < files.length) {
-      var file = files[idx++];
-      try {
-        var commits = await ghAPI('/repos/' + ghState.owner + '/' + ghState.repo + '/commits?path=' + encodeURIComponent(file.path) + '&per_page=1');
-        if (commits.length > 0) {
-          file.mtime = Math.floor(new Date(commits[0].commit.author.date).getTime() / 1000);
-        }
-      } catch (e) {}
+  try {
+    // Scan the 30 most recent commits — enough to surface the newest reports for
+    // Recent without an unbounded walk over a large repo's history. Reports older
+    // than this window stay undated and simply don't appear in Recent.
+    var commits = await ghAPI('/repos/' + owner + '/' + repo + '/commits?sha=' + encodeURIComponent(branch) + '&per_page=30');
+    for (var i = 0; i < commits.length && remaining > 0; i++) {
+      if (ghState.files !== myFiles) return; // repo switched or refreshed mid-fetch
+      var date = Math.floor(new Date(commits[i].commit.committer.date).getTime() / 1000);
+      var detail = await ghAPI('/repos/' + owner + '/' + repo + '/commits/' + commits[i].sha);
+      var changed = detail.files || [];
+      for (var j = 0; j < changed.length; j++) {
+        var f = byPath[changed[j].filename];
+        if (f && !f.mtime) { f.mtime = date; remaining--; }
+      }
     }
-  }
+  } catch (e) {}
 
-  await Promise.all(Array(Math.min(concurrency, files.length)).fill(null).map(function() { return worker(); }));
-
-  ghRerender();
+  if (ghState.files === myFiles) ghRerender();
 }
 
 // Paints the recent list from ghState.files. Section visibility and the
 // recentCount===0 case are handled by fetchRecent before this is called.
 function ghRenderRecent() {
   var files = ghState.files
-    .filter(function(f) { return fileTypeVisible(f.path); })
+    .filter(function(f) { return f.mtime && fileTypeVisible(f.path); })
     .sort(function(a, b) { return b.mtime - a.mtime; })
     .slice(0, state.recentCount);
 
@@ -2212,7 +2223,7 @@ function createFileItem(file, showThumb) {
       <span class="file-item-name" title="${file.path}">${file.name}</span>
       ${unread ? '<span class="unread-dot"></span>' : ''}
     </div>
-    <span class="file-item-meta">${relativeTime(file.mtime)}</span>
+    <span class="file-item-meta">${file.mtime ? relativeTime(file.mtime) : ''}</span>
     ${previewHtml}
     ${thumbHtml}
   `;
@@ -2427,7 +2438,7 @@ function onSearch(query) {
         ${unread ? '<span class="unread-dot"></span>' : ''}
       </div>
       ${dirPath ? '<span class="file-item-meta">' + highlightMatch(dirPath, q) + '</span>' : ''}
-      <span class="file-item-meta">${relativeTime(f.mtime)}</span>
+      <span class="file-item-meta">${f.mtime ? relativeTime(f.mtime) : ''}</span>
       ${previewHtml}
     `;
     div.addEventListener('mouseenter', () => {
@@ -2465,7 +2476,7 @@ function showSearchPreview(file, itemEl) {
 
   document.getElementById('sp-filename').textContent = fileName;
   document.getElementById('sp-dir').textContent = (dirPath ? dirPath + '/' : '/');
-  document.getElementById('sp-time').textContent = relativeTime(file.mtime);
+  document.getElementById('sp-time').textContent = file.mtime ? relativeTime(file.mtime) : '';
 
   const sizeFile = state.allFiles.find(f => f.path === file.path);
   document.getElementById('sp-size').textContent = '';

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.6.1 (2026-06-24)
+
+- **Reliable "most recent" for GitHub repos** — the Recent list now orders reports by the date of the commit that last changed them, found by scanning recent commits in a single pass. This replaces a per-file date lookup that could fail under rate limits and silently drop the newest report out of Recent
+- **Markdown hidden by default** — `.md` files are no longer shown until you turn them on in settings (Show → Markdown); the default view is HTML-only
+- **Recent backfill** — when one file type is hidden, the Recent list fills to the configured count from the other type instead of showing fewer items
+- **Faster GitHub report reopening** — a report's rendered content is cached after first open (keyed by its commit SHA) and reused instead of being re-downloaded
+
 ## v0.6.0 (2026-06-23)
 
 - **Browse GitHub repositories** — view HTML/Markdown reports straight from a GitHub repo, even after the machine that generated them is gone (a CI job, a spot instance, a teammate's laptop). Open the **Source** section in settings, enter `owner/repo`, and connect
