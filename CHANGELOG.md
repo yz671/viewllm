@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.3 (2026-06-24)
+
+- **Previews for GitHub reports** — recent reports from a GitHub repo now show thumbnail renders (inline in the list and in the hover popup) plus text snippets, matching local mode. Content is fetched on demand — inline thumbnails lazy-load only as they scroll into view — and cached by commit SHA, so it's one fetch per report, shared with opening it. Controlled by the existing Text/Thumbnail preview toggles in settings
+- **Taller hover preview** — the hover preview popup is now A4-proportioned, showing a full page of the report instead of just the top
+
 ## v0.6.2 (2026-06-24)
 
 - **Report-to-report links in GitHub repos** — clicking a link from one report to another now loads the linked report instead of a blank page. GitHub reports render from blob URLs, which have no path to resolve relative links against, so viewllm now intercepts those links and resolves them against the report's path in the repo

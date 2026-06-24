@@ -624,7 +624,7 @@ body {
   position: fixed;
   left: 261px;
   width: 380px;
-  max-height: 420px;
+  max-height: 660px;
   background: var(--bg-sidebar);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -682,7 +682,7 @@ body {
 
 .search-preview-thumb {
   margin: 0 14px 14px;
-  height: 200px;
+  height: 500px;
   border-radius: 6px;
   overflow: hidden;
   position: relative;
@@ -696,7 +696,7 @@ body {
   top: 0;
   left: 0;
   width: 400%;
-  height: 800px;
+  height: 2000px;
   border: none;
   transform: scale(0.25);
   transform-origin: top left;
@@ -1347,7 +1347,7 @@ body {
       <button onclick="openGhModal()" class="settings-source-btn">Browse GitHub repository&hellip;</button>
     </div>
     <div class="settings-footer">
-      viewllm v0.6.2 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.6.3 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1730,12 +1730,13 @@ function ghRenderRecent() {
   lastRecentKey = key;
 
   var list = document.getElementById('recent-list');
+  if (ghThumbObserver) ghThumbObserver.disconnect(); // stop watching the old (removed) thumbs
   list.innerHTML = '';
   if (files.length === 0) {
     list.innerHTML = '<div class="file-item-meta" style="padding:8px 10px">No files found</div>';
     return;
   }
-  files.forEach(function(f) { list.appendChild(createFileItem(f, false)); });
+  files.forEach(function(f) { list.appendChild(createFileItem(f, true)); });
 }
 
 function ghBuildTree(files) {
@@ -1785,6 +1786,88 @@ function ghRenderTree() {
   tree.forEach(function(node) { list.appendChild(renderNode(node, '')); });
 }
 
+// Styled HTML wrapper for rendering a Markdown report (shared by viewer + preview).
+function ghMarkdownDoc(renderedHtml) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;max-width:980px;margin:0 auto;padding:32px 24px;color:#1f2328;line-height:1.6;font-size:16px}' +
+    'h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h2{font-size:1.5em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h3{font-size:1.25em}' +
+    'a{color:#0969da;text-decoration:none}a:hover{text-decoration:underline}' +
+    'code{background:#eff1f3;padding:.2em .4em;border-radius:6px;font-size:85%}' +
+    'pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto;line-height:1.45}pre code{background:none;padding:0;font-size:85%}' +
+    'blockquote{margin:0;padding:0 1em;color:#656d76;border-left:.25em solid #d1d9e0}' +
+    'table{border-collapse:collapse;width:100%}th,td{padding:6px 13px;border:1px solid #d1d9e0}th{background:#f6f8fa;font-weight:600}tr:nth-child(2n){background:#f6f8fa}' +
+    'img{max-width:100%}hr{height:.25em;padding:0;margin:24px 0;background:#d1d9e0;border:0}' +
+    'ul,ol{padding-left:2em}li+li{margin-top:.25em}' +
+    '</style></head><body>' + renderedHtml + '</body></html>';
+}
+
+// Extract a short text snippet from a report's source — the client-side equivalent
+// of the server's preview, used in GitHub mode where there is no server to do it.
+function ghExtractPreview(path, text) {
+  var maxLen = 150, out = '';
+  if (path.toLowerCase().endsWith('.md')) {
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length && i < 80 && out.length < maxLen; i++) {
+      var t = lines[i].trim();
+      if (!t || t.charAt(0) === '#' || t.indexOf('---') === 0 || t.indexOf('===') === 0 ||
+          t.charAt(0) === '<' || t.indexOf('```') === 0 || t.indexOf('![') === 0) continue;
+      out += (out ? ' ' : '') + t;
+    }
+  } else {
+    var raw = text;
+    var bi = raw.toLowerCase().indexOf('<body');
+    if (bi >= 0) raw = raw.slice(bi);
+    if (raw.length > 16384) raw = raw.slice(0, 16384);
+    out = raw.replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, ' ')
+             .replace(/<[^>]*>/g, ' ')
+             .replace(/&[a-z#0-9]{1,8};/gi, ' ')
+             .replace(/\s+/g, ' ').trim();
+  }
+  if (out.length <= maxLen) return out;
+  out = out.slice(0, maxLen);
+  var j = out.lastIndexOf(' ');
+  if (j > maxLen / 2) out = out.slice(0, j);
+  return out + '...';
+}
+
+// Fetch a report's bytes from GitHub once and return a same-origin blob URL for it
+// (Markdown rendered to HTML), cached by the file's immutable SHA so the viewer and
+// previews share one fetch. Also caches a text snippet for the preview popup.
+async function ghBlobUrl(file) {
+  var cached = ghState.blobUrls[file.path];
+  if (cached && cached.sha === file.sha) return cached.url;
+  if (cached) URL.revokeObjectURL(cached.url);
+  var blob = await ghAPI('/repos/' + ghState.owner + '/' + ghState.repo + '/git/blobs/' + file.sha);
+  var bytes = Uint8Array.from(atob(blob.content.replace(/\n/g, '')), function(c) { return c.charCodeAt(0); });
+  var text = new TextDecoder().decode(bytes);
+  if (state.previewMap[file.path] == null) state.previewMap[file.path] = ghExtractPreview(file.path, text);
+  var url = file.path.toLowerCase().endsWith('.md')
+    ? URL.createObjectURL(new Blob([ghMarkdownDoc(marked.parse(text))], { type: 'text/html' }))
+    : URL.createObjectURL(new Blob([bytes], { type: 'text/html' }));
+  ghState.blobUrls[file.path] = { sha: file.sha, url: url };
+  return url;
+}
+
+// Lazy-load a GitHub recent-list thumbnail: fetch and render its blob only once it
+// scrolls into view, so connecting doesn't eagerly fetch every recent report.
+let ghThumbObserver = null;
+function ghObserveThumb(thumbEl) {
+  if (!ghThumbObserver) {
+    ghThumbObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (!entry.isIntersecting) return;
+        var el = entry.target;
+        ghThumbObserver.unobserve(el);
+        var file = ghState.files.find(function(f) { return f.path === el.dataset.path; });
+        var iframe = el.querySelector('iframe');
+        if (!file || !iframe) return;
+        ghBlobUrl(file).then(function(url) { iframe.src = url; }).catch(function() {});
+      });
+    }, { root: document.getElementById('sidebar'), rootMargin: '150px' });
+  }
+  ghThumbObserver.observe(thumbEl);
+}
+
 async function ghOpenFile(path, updateHash) {
   var file = ghState.files.find(function(f) { return f.path === path; });
   if (!file) return;
@@ -1804,46 +1887,11 @@ async function ghOpenFile(path, updateHash) {
     iframe.addEventListener('load', onIframeLoad);
     main.appendChild(iframe);
   }
-  // A blob's content is immutable for its SHA, so reuse the cached render instead
-  // of re-downloading when the same file (unchanged SHA) is reopened.
-  var cached = ghState.blobUrls[path];
-  if (cached && cached.sha === file.sha) {
-    iframe.src = cached.url;
-    markAsRead(path, file.mtime);
-    setActiveFileItem(path);
-    if (state.mobileOpen) toggleMobileSidebar();
-    return;
-  }
-  if (cached) URL.revokeObjectURL(cached.url);
-  iframe.src = 'about:blank';
-
+  // Reuse the cached render on a cache hit (no flash); otherwise clear while fetching.
+  var hit = ghState.blobUrls[path];
+  if (!(hit && hit.sha === file.sha)) iframe.src = 'about:blank';
   try {
-    var blob = await ghAPI('/repos/' + ghState.owner + '/' + ghState.repo + '/git/blobs/' + file.sha);
-    var raw = blob.content.replace(/\n/g, '');
-    var bytes = Uint8Array.from(atob(raw), function(c) { return c.charCodeAt(0); });
-    var blobUrl;
-
-    if (path.toLowerCase().endsWith('.md')) {
-      var text = new TextDecoder().decode(bytes);
-      var rendered = marked.parse(text);
-      var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
-        'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;max-width:980px;margin:0 auto;padding:32px 24px;color:#1f2328;line-height:1.6;font-size:16px}' +
-        'h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h2{font-size:1.5em;padding-bottom:.3em;border-bottom:1px solid #d1d9e0}h3{font-size:1.25em}' +
-        'a{color:#0969da;text-decoration:none}a:hover{text-decoration:underline}' +
-        'code{background:#eff1f3;padding:.2em .4em;border-radius:6px;font-size:85%}' +
-        'pre{background:#f6f8fa;padding:16px;border-radius:6px;overflow-x:auto;line-height:1.45}pre code{background:none;padding:0;font-size:85%}' +
-        'blockquote{margin:0;padding:0 1em;color:#656d76;border-left:.25em solid #d1d9e0}' +
-        'table{border-collapse:collapse;width:100%}th,td{padding:6px 13px;border:1px solid #d1d9e0}th{background:#f6f8fa;font-weight:600}tr:nth-child(2n){background:#f6f8fa}' +
-        'img{max-width:100%}hr{height:.25em;padding:0;margin:24px 0;background:#d1d9e0;border:0}' +
-        'ul,ol{padding-left:2em}li+li{margin-top:.25em}' +
-        '</style></head><body>' + rendered + '</body></html>';
-      blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    } else {
-      blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/html' }));
-    }
-
-    ghState.blobUrls[path] = { sha: file.sha, url: blobUrl };
-    iframe.src = blobUrl;
+    iframe.src = await ghBlobUrl(file);
   } catch (e) {
     iframe.srcdoc = '<body style="font-family:sans-serif;padding:40px;color:#666"><h2>Failed to load file</h2><p>' + esc(e.message) + '</p></body>';
   }
@@ -2280,8 +2328,17 @@ function createFileItem(file, showThumb) {
   const unread = isUnread(file.path, file.mtime);
   const previewHtml = (state.textPreview && file.preview) ? `<div class="file-item-preview">${file.preview}</div>` : '';
   const isMd = file.path.toLowerCase().endsWith('.md');
-  const thumbSrc = isMd ? `/files/${file.path}?thumb=1` : `/files/${file.path}`;
-  const thumbHtml = (!ghState.connected && showThumb && state.thumbPreview) ? `<div class="file-item-thumb"><iframe src="${thumbSrc}" ${isMd ? '' : 'loading="lazy" sandbox="allow-same-origin"'} tabindex="-1"></iframe></div>` : '';
+  const showThumbHere = showThumb && state.thumbPreview;
+  let thumbHtml = '';
+  if (showThumbHere) {
+    if (ghState.connected) {
+      // Empty iframe; filled from a cached blob URL once scrolled into view (ghObserveThumb).
+      thumbHtml = '<div class="file-item-thumb"><iframe sandbox="allow-same-origin" tabindex="-1"></iframe></div>';
+    } else {
+      const thumbSrc = isMd ? `/files/${file.path}?thumb=1` : `/files/${file.path}`;
+      thumbHtml = `<div class="file-item-thumb"><iframe src="${thumbSrc}" ${isMd ? '' : 'loading="lazy" sandbox="allow-same-origin"'} tabindex="-1"></iframe></div>`;
+    }
+  }
   div.innerHTML = `
     <div class="file-item-name-row">
       <span class="file-item-name" title="${file.path}">${file.name}</span>
@@ -2291,6 +2348,10 @@ function createFileItem(file, showThumb) {
     ${previewHtml}
     ${thumbHtml}
   `;
+  if (showThumbHere && ghState.connected) {
+    const thumbEl = div.querySelector('.file-item-thumb');
+    if (thumbEl) { thumbEl.dataset.path = file.path; ghObserveThumb(thumbEl); }
+  }
   div.addEventListener('mouseenter', () => {
     clearTimeout(previewTimer);
     showSearchPreview(file, div);
@@ -2532,9 +2593,11 @@ function clearSearch() {
 
 let previewTimer = null;
 let previewActive = false;
+let currentPreviewPath = null;
 
 function showSearchPreview(file, itemEl) {
   const panel = document.getElementById('search-preview-panel');
+  currentPreviewPath = file.path;
   const fileName = file.path.split('/').pop();
   const dirPath = file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : '';
 
@@ -2554,15 +2617,33 @@ function showSearchPreview(file, itemEl) {
     textEl.style.display = 'none';
   }
 
+  const thumb = document.getElementById('sp-thumb');
+  const spIframe = document.getElementById('sp-iframe');
   if (!ghState.connected) {
-    document.getElementById('sp-iframe').src = '/files/' + file.path + '?v=' + file.mtime;
+    thumb.style.display = '';
+    spIframe.src = '/files/' + file.path + '?v=' + file.mtime;
   } else {
-    document.getElementById('sp-thumb').style.display = 'none';
+    // GitHub mode: fetch the report on demand and render it from a blob URL.
+    const ghFile = ghState.files.find(x => x.path === file.path);
+    if (!ghFile) {
+      thumb.style.display = 'none';
+    } else {
+      thumb.style.display = '';
+      spIframe.src = 'about:blank';
+      ghBlobUrl(ghFile).then(function(url) {
+        if (currentPreviewPath !== file.path || !previewActive) return; // moved away
+        spIframe.src = url;
+        const p = state.previewMap[file.path];
+        if (p) { textEl.textContent = p; textEl.style.display = ''; }
+      }).catch(function() {
+        if (currentPreviewPath === file.path) thumb.style.display = 'none';
+      });
+    }
   }
 
   const rect = itemEl.getBoundingClientRect();
   const sidebarRect = document.getElementById('sidebar').getBoundingClientRect();
-  const panelHeight = 420;
+  const panelHeight = 660;
   let top = rect.top;
   if (top + panelHeight > window.innerHeight - 10) {
     top = window.innerHeight - panelHeight - 10;
