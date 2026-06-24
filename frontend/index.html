@@ -1787,6 +1787,7 @@ function ghRenderTree() {
 }
 
 // Styled HTML wrapper for rendering a Markdown report (shared by viewer + preview).
+// Mirrors the CSS that serveMarkdown emits in main.go — keep the two in sync.
 function ghMarkdownDoc(renderedHtml) {
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
     'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;max-width:980px;margin:0 auto;padding:32px 24px;color:#1f2328;line-height:1.6;font-size:16px}' +
@@ -1802,7 +1803,8 @@ function ghMarkdownDoc(renderedHtml) {
 }
 
 // Extract a short text snippet from a report's source — the client-side equivalent
-// of the server's preview, used in GitHub mode where there is no server to do it.
+// of extractPreview/extractMarkdownPreview in main.go (GitHub mode has no server to
+// do it). Keep the heuristics roughly in sync with the Go versions.
 function ghExtractPreview(path, text) {
   var maxLen = 150, out = '';
   if (path.toLowerCase().endsWith('.md')) {
@@ -1872,10 +1874,8 @@ async function ghOpenFile(path, updateHash) {
   var file = ghState.files.find(function(f) { return f.path === path; });
   if (!file) return;
 
-  state.currentFile = path;
   if (updateHash !== false) window.location.hash = encodeURIComponent(path);
-
-  setHeaderPath(path);
+  selectFile(path, file);
 
   var main = document.getElementById('main');
   var welcome = document.getElementById('welcome');
@@ -1895,9 +1895,6 @@ async function ghOpenFile(path, updateHash) {
   } catch (e) {
     iframe.srcdoc = '<body style="font-family:sans-serif;padding:40px;color:#666"><h2>Failed to load file</h2><p>' + esc(e.message) + '</p></body>';
   }
-
-  markAsRead(path, file.mtime);
-  setActiveFileItem(path);
 
   if (state.mobileOpen) toggleMobileSidebar();
 }
@@ -2217,6 +2214,16 @@ function setActiveFileItem(path) {
   });
 }
 
+// Make `path` the active file across the chrome: current selection, header path,
+// sidebar highlight, and read-state. URL/hash handling stays with each caller since
+// it differs by navigation type (push vs replace vs none).
+function selectFile(path, file) {
+  state.currentFile = path;
+  setHeaderPath(path);
+  setActiveFileItem(path);
+  if (file) markAsRead(path, file.mtime);
+}
+
 // When a report links to another report, the iframe navigates on its own,
 // bypassing openFile(). This fires on every iframe load; if it landed on a
 // different local report, sync the header, sidebar highlight, read-state, and
@@ -2233,12 +2240,8 @@ function syncIframeNav() {
     return; // cross-origin navigation (e.g. an external link) — can't read it
   }
   if (!path || path === state.currentFile) return;
-  state.currentFile = path;
   if (history.replaceState) history.replaceState(null, '', '#' + encodeURIComponent(path));
-  setHeaderPath(path);
-  setActiveFileItem(path);
-  const file = state.allFiles.find(f => f.path === path);
-  if (file) markAsRead(path, file.mtime);
+  selectFile(path, state.allFiles.find(f => f.path === path));
 }
 
 // Dispatches the iframe's load event by mode: local mode follows in-report
@@ -2281,16 +2284,13 @@ function ghAttachLinkInterceptor(iframe) {
 
 function openFile(path, updateHash = true) {
   if (ghState.connected) { ghOpenFile(path, updateHash); return; }
-  state.currentFile = path;
   if (updateHash) {
     window.location.hash = encodeURIComponent(path);
   }
 
   const file = state.allFiles.find(f => f.path === path);
-  if (file) markAsRead(path, file.mtime);
+  selectFile(path, file);
   const cacheBust = file ? file.mtime : Date.now();
-
-  setHeaderPath(path);
 
   const main = document.getElementById('main');
   const welcome = document.getElementById('welcome');
@@ -2304,14 +2304,13 @@ function openFile(path, updateHash = true) {
   }
   iframe.src = '/files/' + path + '?v=' + cacheBust;
 
-  setActiveFileItem(path);
-
   if (state.mobileOpen) {
     toggleMobileSidebar();
   }
 }
 
 function relativeTime(unixSeconds) {
+  if (!unixSeconds) return ''; // undated (e.g. a GitHub file not yet stamped)
   const diff = Math.floor(Date.now() / 1000) - unixSeconds;
   if (diff < 60) return 'just now';
   if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
@@ -2344,7 +2343,7 @@ function createFileItem(file, showThumb) {
       <span class="file-item-name" title="${file.path}">${file.name}</span>
       ${unread ? '<span class="unread-dot"></span>' : ''}
     </div>
-    <span class="file-item-meta">${file.mtime ? relativeTime(file.mtime) : ''}</span>
+    <span class="file-item-meta">${relativeTime(file.mtime)}</span>
     ${previewHtml}
     ${thumbHtml}
   `;
@@ -2563,7 +2562,7 @@ function onSearch(query) {
         ${unread ? '<span class="unread-dot"></span>' : ''}
       </div>
       ${dirPath ? '<span class="file-item-meta">' + highlightMatch(dirPath, q) + '</span>' : ''}
-      <span class="file-item-meta">${f.mtime ? relativeTime(f.mtime) : ''}</span>
+      <span class="file-item-meta">${relativeTime(f.mtime)}</span>
       ${previewHtml}
     `;
     div.addEventListener('mouseenter', () => {
@@ -2603,19 +2602,18 @@ function showSearchPreview(file, itemEl) {
 
   document.getElementById('sp-filename').textContent = fileName;
   document.getElementById('sp-dir').textContent = (dirPath ? dirPath + '/' : '/');
-  document.getElementById('sp-time').textContent = file.mtime ? relativeTime(file.mtime) : '';
+  document.getElementById('sp-time').textContent = relativeTime(file.mtime);
 
   const sizeFile = state.allFiles.find(f => f.path === file.path);
   document.getElementById('sp-size').textContent = '';
 
-  const preview = state.previewMap[file.path];
   const textEl = document.getElementById('sp-text');
-  if (preview) {
-    textEl.textContent = preview;
-    textEl.style.display = '';
-  } else {
-    textEl.style.display = 'none';
-  }
+  const applyPreviewText = () => {
+    const p = state.previewMap[file.path];
+    textEl.textContent = p || '';
+    textEl.style.display = p ? '' : 'none';
+  };
+  applyPreviewText();
 
   const thumb = document.getElementById('sp-thumb');
   const spIframe = document.getElementById('sp-iframe');
@@ -2633,8 +2631,7 @@ function showSearchPreview(file, itemEl) {
       ghBlobUrl(ghFile).then(function(url) {
         if (currentPreviewPath !== file.path || !previewActive) return; // moved away
         spIframe.src = url;
-        const p = state.previewMap[file.path];
-        if (p) { textEl.textContent = p; textEl.style.display = ''; }
+        applyPreviewText(); // snippet is now cached in previewMap
       }).catch(function() {
         if (currentPreviewPath === file.path) thumb.style.display = 'none';
       });
