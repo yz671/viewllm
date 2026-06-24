@@ -1347,7 +1347,7 @@ body {
       <button onclick="openGhModal()" class="settings-source-btn">Browse GitHub repository&hellip;</button>
     </div>
     <div class="settings-footer">
-      viewllm v0.6.1 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
+      viewllm v0.6.2 &middot; by yz671 &middot; <a href="https://github.com/yz671/viewllm" target="_blank" rel="noopener">GitHub</a>
     </div>
   </div>
 
@@ -1801,6 +1801,7 @@ async function ghOpenFile(path, updateHash) {
   var iframe = main.querySelector('iframe');
   if (!iframe) {
     iframe = document.createElement('iframe');
+    iframe.addEventListener('load', onIframeLoad);
     main.appendChild(iframe);
   }
   // A blob's content is immutable for its SHA, so reuse the cached render instead
@@ -2168,6 +2169,68 @@ function setActiveFileItem(path) {
   });
 }
 
+// When a report links to another report, the iframe navigates on its own,
+// bypassing openFile(). This fires on every iframe load; if it landed on a
+// different local report, sync the header, sidebar highlight, read-state, and
+// URL to match. No-op for GitHub mode (blob URLs) and same-page anchor jumps.
+function syncIframeNav() {
+  const iframe = document.querySelector('#main iframe');
+  if (!iframe) return;
+  let path;
+  try {
+    const m = iframe.contentWindow.location.pathname.match(/^\/files\/(.+)$/);
+    if (!m) return; // about:blank, a blob, or a non-report URL
+    path = decodeURIComponent(m[1]);
+  } catch (e) {
+    return; // cross-origin navigation (e.g. an external link) — can't read it
+  }
+  if (!path || path === state.currentFile) return;
+  state.currentFile = path;
+  if (history.replaceState) history.replaceState(null, '', '#' + encodeURIComponent(path));
+  setHeaderPath(path);
+  setActiveFileItem(path);
+  const file = state.allFiles.find(f => f.path === path);
+  if (file) markAsRead(path, file.mtime);
+}
+
+// Dispatches the iframe's load event by mode: local mode follows in-report
+// navigation; GitHub mode (blob URLs) intercepts report-to-report link clicks.
+function onIframeLoad() {
+  if (ghState.connected) {
+    const iframe = document.querySelector('#main iframe');
+    if (iframe) ghAttachLinkInterceptor(iframe);
+  } else {
+    syncIframeNav();
+  }
+}
+
+// In GitHub mode a report is shown from a blob URL, so a relative link to another
+// report has no path to resolve against and would load a blank page. Intercept
+// clicks on links pointing to a known report and load the target via ghOpenFile
+// instead (which also updates the header). Links resolve against the report's own
+// repo path, not the blob URL.
+function ghAttachLinkInterceptor(iframe) {
+  let doc;
+  try { doc = iframe.contentDocument; } catch (e) { return; }
+  if (!doc || doc.__ghLinks) return;
+  doc.__ghLinks = true;
+  const reportPath = state.currentFile;
+  doc.addEventListener('click', function(e) {
+    const a = e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href || href.charAt(0) === '#') return; // in-page anchor — let it scroll
+    let url;
+    try { url = new URL(href, 'https://viewllm.local/' + reportPath); } catch (err) { return; }
+    if (url.origin !== 'https://viewllm.local') return; // external link — leave it
+    const target = decodeURIComponent(url.pathname.slice(1));
+    if (ghState.files.some(function(f) { return f.path === target; })) {
+      e.preventDefault();
+      ghOpenFile(target);
+    }
+  });
+}
+
 function openFile(path, updateHash = true) {
   if (ghState.connected) { ghOpenFile(path, updateHash); return; }
   state.currentFile = path;
@@ -2188,6 +2251,7 @@ function openFile(path, updateHash = true) {
   let iframe = main.querySelector('iframe');
   if (!iframe) {
     iframe = document.createElement('iframe');
+    iframe.addEventListener('load', onIframeLoad);
     main.appendChild(iframe);
   }
   iframe.src = '/files/' + path + '?v=' + cacheBust;

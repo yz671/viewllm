@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.2 (2026-06-24)
+
+- **Report-to-report links in GitHub repos** — clicking a link from one report to another now loads the linked report instead of a blank page. GitHub reports render from blob URLs, which have no path to resolve relative links against, so viewllm now intercepts those links and resolves them against the report's path in the repo
+- **Header follows in-report navigation** — when you click a link between reports, the file path shown at the top, the sidebar highlight, and the URL all update to match the report you landed on (previously only the report body changed)
+
 ## v0.6.1 (2026-06-24)
 
 - **Reliable "most recent" for GitHub repos** — the Recent list now orders reports by the date of the commit that last changed them, found by scanning recent commits in a single pass. This replaces a per-file date lookup that could fail under rate limits and silently drop the newest report out of Recent
