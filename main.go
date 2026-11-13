@@ -563,7 +563,7 @@ func findCloudflared() string {
 	return ""
 }
 
-func startTunnel(port int) *exec.Cmd {
+func startTunnel(target string) *exec.Cmd {
 	bin := findCloudflared()
 	if bin == "" {
 		fmt.Fprintln(os.Stderr, "tunnel: cloudflared not found. Install it or run: npm install -g cloudflared")
@@ -572,9 +572,9 @@ func startTunnel(port int) *exec.Cmd {
 
 	var cmd *exec.Cmd
 	if strings.HasSuffix(bin, "npx") || strings.HasSuffix(bin, "npx.cmd") {
-		cmd = exec.Command(bin, "cloudflared", "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
+		cmd = exec.Command(bin, "cloudflared", "tunnel", "--url", target)
 	} else {
-		cmd = exec.Command(bin, "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
+		cmd = exec.Command(bin, "tunnel", "--url", target)
 	}
 
 	stderr, err := cmd.StderrPipe()
@@ -739,11 +739,13 @@ func getPublicIP() string {
 	}
 }
 
-func printAccessHints(port int, publicIP string) {
+func printAccessHints(host string, port int, publicIP string) {
 	lanIP := getLANIP()
 
 	fmt.Println()
-	if publicIP != "" {
+	if host != "" {
+		fmt.Printf("  Open: http://%s\n", net.JoinHostPort(host, strconv.Itoa(port)))
+	} else if publicIP != "" {
 		fmt.Printf("  Share: http://%s:%d\n", publicIP, port)
 		if lanIP != "" && lanIP != publicIP {
 			fmt.Printf("  Local: http://%s:%d\n", lanIP, port)
@@ -760,6 +762,7 @@ func printAccessHints(port int, publicIP string) {
 
 func main() {
 	port := 8090
+	host := ""
 	tunnel := false
 	var dir string
 	var cliExcludes []string
@@ -776,6 +779,9 @@ func main() {
 		} else if args[i] == "-exclude-file" && i+1 < len(args) {
 			cliFileExcludes = append(cliFileExcludes, args[i+1])
 			i++
+		} else if args[i] == "-host" && i+1 < len(args) {
+			host = args[i+1]
+			i++
 		} else if args[i] == "-tunnel" {
 			tunnel = true
 		} else if len(args[i]) > 0 && args[i][0] != '-' {
@@ -789,7 +795,13 @@ func main() {
 
 	// Start public IP detection early (runs concurrently with setup)
 	publicIPCh := make(chan string, 1)
-	go func() { publicIPCh <- getPublicIP() }()
+	go func() {
+		if host != "" {
+			publicIPCh <- ""
+			return
+		}
+		publicIPCh <- getPublicIP()
+	}()
 
 	rootDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -822,10 +834,10 @@ func main() {
 		}
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	ln, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil && !userSetPort {
 		for try := port + 1; try < port+20; try++ {
-			ln, err = net.Listen("tcp", fmt.Sprintf(":%d", try))
+			ln, err = net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(try)))
 			if err == nil {
 				port = try
 				break
@@ -840,7 +852,7 @@ func main() {
 
 	if !tunnel {
 		fmt.Printf("viewllm serving %s\n", rootDir)
-		printAccessHints(port, publicIP)
+		printAccessHints(host, port, publicIP)
 	} else {
 		fmt.Printf("viewllm serving %s — starting tunnel (powered by Cloudflare)...\n", rootDir)
 	}
@@ -850,7 +862,11 @@ func main() {
 		go func() {
 			log.Fatal(http.Serve(ln, nil))
 		}()
-		tunnelCmd = startTunnel(port)
+		tunnelHost := host
+		if tunnelHost == "" {
+			tunnelHost = "localhost"
+		}
+		tunnelCmd = startTunnel("http://" + net.JoinHostPort(tunnelHost, strconv.Itoa(port)))
 
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

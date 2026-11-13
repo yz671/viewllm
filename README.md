@@ -167,7 +167,7 @@ Works with **Claude Code**, **Codex**, **Cursor**, **Jupyter**, and anything els
 ## Usage
 
 ```
-viewllm [directory] [-p port] [-exclude dir]... [-exclude-file name]... [-tunnel]
+viewllm [directory] [-p port] [-host address] [-exclude dir]... [-exclude-file name]... [-tunnel]
 ```
 
 Serves the current directory by default. Finds an open port automatically.
@@ -175,6 +175,7 @@ Serves the current directory by default. Finds an open port automatically.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-p` | `8090` | Port to serve on |
+| `-host` | all interfaces | Address to listen on, e.g. `127.0.0.1` to keep reports off the network |
 | `-exclude` | — | Additional directories to ignore (repeatable) |
 | `-exclude-file` | — | Additional files to ignore by name (repeatable) |
 | `-tunnel` | off | Create a public URL via Cloudflare Tunnel |
